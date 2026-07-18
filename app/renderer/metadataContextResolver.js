@@ -1,7 +1,12 @@
 const {
+    definitionsForContext
+} = require("./metadataDefinitions.js");
+const {
     isTagLine,
+    isEscaped,
     parseTagLine,
-    parseMetadataBlock
+    parseMetadataBlock,
+    parseInlineMetadata
 } = require("./metadataParser.js");
 
 function splitLines(text) {
@@ -27,9 +32,7 @@ function classifyBlockComments(lines) {
                 const lineComment = line.indexOf("//", position);
                 const blockStart = line.indexOf("/*", position);
 
-                if( blockStart === -1 || (lineComment !== -1 && lineComment < blockStart) ) {
-                    break;
-                }
+                if( blockStart === -1 || (lineComment !== -1 && lineComment < blockStart) ) break;
 
                 commentRows.add(row);
                 inBlockComment = true;
@@ -69,7 +72,8 @@ function isSupportedDialogueLine(lines, row, commentRows, conditionalRows) {
     if( /^(INCLUDE|VAR|CONST|LIST|EXTERNAL)\b/i.test(trimmed) ) return false;
     if( /^(===|==|=)/.test(trimmed) ) return false;
     if( /^(->|<-|~)/.test(trimmed) ) return false;
-    if( /^(\*+|\++|-+)(?:\s|$)/.test(trimmed) ) return false;
+    if( /^(?:\*+|\++)(?=\s|\(|\{|\[|$)/.test(trimmed) ) return false;
+    if( /^-+(?:\s|$)/.test(trimmed) ) return false;
     if( /^[{}]/.test(trimmed) ) return false;
 
     return true;
@@ -85,7 +89,108 @@ function findTagBlock(lines, row) {
     return { blockStart: blockStart, blockEnd: blockEnd };
 }
 
-function resolveMetadataContext(text, cursorRow) {
+function findUnescapedSequence(line, sequence, startColumn) {
+    for(let column = startColumn || 0; column <= line.length - sequence.length; column++) {
+        if( line.substring(column, column + sequence.length) === sequence && !isEscaped(line, column) ) {
+            return column;
+        }
+    }
+    return -1;
+}
+
+function removeLeadingBalancedSection(text, openCharacter, closeCharacter) {
+    if( text[0] !== openCharacter ) return text;
+
+    let depth = 0;
+    for(let index = 0; index < text.length; index++) {
+        if( isEscaped(text, index) ) continue;
+        if( text[index] === openCharacter ) depth++;
+        if( text[index] === closeCharacter ) depth--;
+        if( depth === 0 ) return text.substring(index + 1).trimStart();
+    }
+
+    return null;
+}
+
+function removeLeadingChoiceSyntax(choiceBody) {
+    let body = choiceBody.trim();
+    if( body.length === 0 || /^(\/\/|\/\*)/.test(body) ) return "";
+
+    if( body[0] === "(" ) {
+        body = removeLeadingBalancedSection(body, "(", ")");
+        if( body == null ) return null;
+    }
+
+    while(body[0] === "{") {
+        body = removeLeadingBalancedSection(body, "{", "}");
+        if( body == null ) return null;
+    }
+
+    return body;
+}
+
+function parseChoiceLine(line, row, definitions) {
+    const bulletMatch = /^(\s*)(?:\*+|\++)(?=\s|\(|\{|\[|$)/.exec(line);
+    if( !bulletMatch ) return null;
+
+    const contentStartColumn = bulletMatch[0].length;
+    const divertColumn = findUnescapedSequence(line, "->", contentStartColumn);
+    const searchEndColumn = divertColumn >= 0 ? divertColumn : line.length;
+    const openingBracketColumn = findUnescapedSequence(line, "[", contentStartColumn);
+    let closingBracketColumn = -1;
+    if( openingBracketColumn >= 0 && openingBracketColumn < searchEndColumn ) {
+        closingBracketColumn = findUnescapedSequence(line, "]", openingBracketColumn + 1);
+        if( closingBracketColumn < 0 || closingBracketColumn > searchEndColumn ) return null;
+    }
+
+    const tagSearchStart = closingBracketColumn >= 0 ? openingBracketColumn + 1 : contentStartColumn;
+    const tagSearchEnd = closingBracketColumn >= 0 ? closingBracketColumn : searchEndColumn;
+    let firstTagColumn = -1;
+
+    for(let column = tagSearchStart; column < tagSearchEnd; column++) {
+        if( line[column] === "#" && !isEscaped(line, column) ) {
+            firstTagColumn = column;
+            break;
+        }
+    }
+
+    if( closingBracketColumn >= 0 ) {
+        const tagBeforeBracket = findUnescapedSequence(line, "#", contentStartColumn);
+        if( tagBeforeBracket >= 0 && tagBeforeBracket < openingBracketColumn ) return null;
+        const tagAfterBracket = findUnescapedSequence(line, "#", closingBracketColumn + 1);
+        if( tagAfterBracket >= 0 && tagAfterBracket < searchEndColumn ) return null;
+    }
+
+    if( divertColumn >= 0 ) {
+        const invalidTagColumn = findUnescapedSequence(line, "#", divertColumn + 2);
+        if( invalidTagColumn >= 0 ) return null;
+    }
+
+    const leadingChoiceBody = removeLeadingChoiceSyntax(
+        line.substring(contentStartColumn, closingBracketColumn >= 0 ? openingBracketColumn : (firstTagColumn >= 0 ? firstTagColumn : searchEndColumn))
+    );
+    if( leadingChoiceBody == null ) return null;
+
+    const choiceOnlyText = closingBracketColumn >= 0
+        ? line.substring(openingBracketColumn + 1, firstTagColumn >= 0 ? firstTagColumn : closingBracketColumn).trim()
+        : "";
+    if( !String(leadingChoiceBody).trim() && !choiceOnlyText ) return null;
+
+    let insertColumn = tagSearchEnd;
+    while(insertColumn > contentStartColumn && /\s/.test(line[insertColumn - 1])) insertColumn--;
+
+    const tagParseStart = firstTagColumn >= 0 ? firstTagColumn : insertColumn;
+    return {
+        type: "choice",
+        choiceRow: row,
+        lineNumber: row + 1,
+        insertColumn: insertColumn,
+        divertColumn: divertColumn,
+        metadata: parseInlineMetadata(line, row, tagParseStart, tagSearchEnd, definitions)
+    };
+}
+
+function resolveMetadataContext(text, cursorRow, definitions) {
     const lines = splitLines(text);
     const row = Number(cursorRow);
 
@@ -93,20 +198,29 @@ function resolveMetadataContext(text, cursorRow) {
 
     const commentRows = classifyBlockComments(lines);
     const conditionalRows = classifyConditionalBlocks(lines);
+    if( commentRows.has(row) || conditionalRows.has(row) ) return null;
+
+    const choiceDefinitions = definitionsForContext(definitions, "choice");
+    const choice = parseChoiceLine(lines[row], row, choiceDefinitions);
+    if( choice ) {
+        choice.definitions = choiceDefinitions;
+        choice.lines = lines;
+        return choice;
+    }
+
+    const dialogueDefinitions = definitionsForContext(definitions, "dialogue");
     let dialogueRow = null;
     let blockStart = row;
     let blockEnd = row - 1;
 
-    const tagAtCursor = parseTagLine(lines[row], row);
+    const tagAtCursor = parseTagLine(lines[row], row, dialogueDefinitions);
     if( tagAtCursor && tagAtCursor.isSupported ) {
         const block = findTagBlock(lines, row);
         blockStart = block.blockStart;
         blockEnd = block.blockEnd;
         dialogueRow = blockEnd + 1;
 
-        if( !isSupportedDialogueLine(lines, dialogueRow, commentRows, conditionalRows) ) {
-            return null;
-        }
+        if( !isSupportedDialogueLine(lines, dialogueRow, commentRows, conditionalRows) ) return null;
     } else if( isSupportedDialogueLine(lines, row, commentRows, conditionalRows) ) {
         dialogueRow = row;
 
@@ -125,11 +239,13 @@ function resolveMetadataContext(text, cursorRow) {
         lineNumber: dialogueRow + 1,
         blockStart: blockStart,
         blockEnd: blockEnd,
-        metadata: parseMetadataBlock(lines, blockStart, blockEnd),
+        metadata: parseMetadataBlock(lines, blockStart, blockEnd, dialogueDefinitions),
+        definitions: dialogueDefinitions,
         lines: lines
     };
 }
 
 exports.splitLines = splitLines;
 exports.isSupportedDialogueLine = isSupportedDialogueLine;
+exports.parseChoiceLine = parseChoiceLine;
 exports.resolveMetadataContext = resolveMetadataContext;

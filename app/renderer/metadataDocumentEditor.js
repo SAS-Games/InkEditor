@@ -8,6 +8,14 @@ function replaceLineEdit(lines, row, newLine) {
     };
 }
 
+function replaceInlineEdit(row, startColumn, endColumn, text) {
+    return {
+        start: { row: row, column: startColumn },
+        end: { row: row, column: endColumn },
+        text: text
+    };
+}
+
 function insertLineEdit(row, newLine) {
     return {
         start: { row: row, column: 0 },
@@ -24,13 +32,48 @@ function removeLineEdit(row) {
     };
 }
 
+function removeChoiceEntries(line, entries) {
+    let updatedLine = line;
+    const orderedEntries = entries.slice().sort((left, right) => right.startColumn - left.startColumn);
+
+    orderedEntries.forEach(entry => {
+        let startColumn = entry.startColumn;
+        while(startColumn > 0 && /\s/.test(line[startColumn - 1])) startColumn--;
+        updatedLine = updatedLine.substring(0, startColumn) + updatedLine.substring(entry.endColumn);
+    });
+
+    return updatedLine;
+}
+
+function setChoiceMetadataValue(context, canonicalKey, normalizedValue, nearestOccurrence) {
+    const row = context.choiceRow;
+    const line = context.lines[row];
+
+    if( normalizedValue.length === 0 ) {
+        if( !nearestOccurrence ) return null;
+        return replaceLineEdit(context.lines, row, removeChoiceEntries(line, [nearestOccurrence]));
+    }
+
+    const canonicalTag = "# " + canonicalKey + ":" + normalizedValue;
+    if( nearestOccurrence ) {
+        if( canonicalTag === line.substring(nearestOccurrence.startColumn, nearestOccurrence.endColumn) ) return null;
+        return replaceInlineEdit(row, nearestOccurrence.startColumn, nearestOccurrence.endColumn, canonicalTag);
+    }
+
+    return replaceInlineEdit(row, context.insertColumn, context.insertColumn, " " + canonicalTag);
+}
+
 function setMetadataValue(context, key, value) {
-    const canonicalKey = canonicalMetadataKey(key);
+    const canonicalKey = canonicalMetadataKey(key, context && context.definitions);
     if( !context || !canonicalKey ) return null;
 
     const normalizedValue = String(value == null ? "" : value).trim();
     const occurrences = context.metadata.occurrences[canonicalKey] || [];
     const nearestOccurrence = occurrences.length ? occurrences[occurrences.length - 1] : null;
+
+    if( context.type === "choice" ) {
+        return setChoiceMetadataValue(context, canonicalKey, normalizedValue, nearestOccurrence);
+    }
 
     if( normalizedValue.length === 0 ) {
         return nearestOccurrence ? removeLineEdit(nearestOccurrence.row) : null;
@@ -48,7 +91,17 @@ function setMetadataValue(context, key, value) {
 }
 
 function removeAllManagedMetadata(context) {
-    if( !context || context.blockStart > context.blockEnd ) return null;
+    if( !context ) return null;
+
+    if( context.type === "choice" ) {
+        const managedEntries = context.metadata.entries.filter(entry => entry.isSupported);
+        if( managedEntries.length === 0 ) return null;
+
+        const updatedLine = removeChoiceEntries(context.lines[context.choiceRow], managedEntries);
+        return replaceLineEdit(context.lines, context.choiceRow, updatedLine);
+    }
+
+    if( context.blockStart > context.blockEnd ) return null;
 
     const remainingLines = context.metadata.entries
         .filter(entry => !entry.isSupported)

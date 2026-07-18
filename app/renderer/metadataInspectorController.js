@@ -25,7 +25,11 @@ function refresh() {
         return;
     }
 
-    currentContext = resolveMetadataContext(activeInkFile.getValue(), currentCursorRow);
+    currentContext = resolveMetadataContext(
+        activeInkFile.getValue(),
+        currentCursorRow,
+        configurationResult.definitions
+    );
     const messages = validateMetadata(currentContext, configurationResult);
     if( currentContext ) {
         view.renderContext(currentContext, configurationResult, messages);
@@ -45,6 +49,7 @@ function reloadConfiguration() {
         ? currentProject.mainInk.absolutePath()
         : null;
     configurationResult = loadMetadataConfiguration(mainInkPath);
+    if( view ) view.setDefinitions(configurationResult.definitions);
     scheduleRefresh();
 }
 
@@ -61,6 +66,7 @@ function applyEdit(edit) {
 function initialize(newEditorView) {
     editorView = newEditorView;
     view = new MetadataInspectorView(document);
+    view.setDefinitions(configurationResult.definitions);
     view.setEvents({
         fieldChanged: (key, value) => {
             if( !currentContext ) return;

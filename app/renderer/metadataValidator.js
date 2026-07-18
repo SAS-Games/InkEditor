@@ -1,5 +1,3 @@
-const { METADATA_DEFINITIONS } = require("./metadataDefinitions.js");
-
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
 function warning(code, message, field) {
@@ -16,7 +14,8 @@ function validateMetadata(context, configurationResult) {
 
     if( !context ) return messages;
 
-    METADATA_DEFINITIONS.forEach(definition => {
+    const definitions = context.definitions || configuration.definitions || [];
+    definitions.forEach(definition => {
         const key = definition.key;
         const occurrences = context.metadata.occurrences[key] || [];
         const value = context.metadata.values[key];

@@ -15,22 +15,30 @@ function MetadataInspectorView(documentObject) {
     this.removeAllButton = this.root.querySelector(".metadata-remove-all");
     this.collapseButton = this.root.querySelector(".metadata-collapse");
     this.fields = {};
+    this.fieldWrappers = {};
     this.catalogLists = {};
+    this.definitions = [];
     this.events = {
         fieldChanged: () => {},
         removeAll: () => {},
         collapsedChanged: () => {}
     };
 
-    this.createFields();
+    this.setDefinitions(METADATA_DEFINITIONS);
     this.removeAllButton.addEventListener("click", () => this.events.removeAll());
     this.collapseButton.addEventListener("click", () => {
         this.events.collapsedChanged(!this.main.classList.contains("metadata-inspector-collapsed"));
     });
 }
 
-MetadataInspectorView.prototype.createFields = function() {
-    METADATA_DEFINITIONS.forEach(definition => {
+MetadataInspectorView.prototype.createFields = function(definitions) {
+    while(this.fieldsContainer.firstChild) this.fieldsContainer.removeChild(this.fieldsContainer.firstChild);
+    Object.values(this.catalogLists).forEach(datalist => datalist.remove());
+    this.fields = {};
+    this.fieldWrappers = {};
+    this.catalogLists = {};
+
+    definitions.forEach(definition => {
         const fieldWrapper = this.document.createElement("label");
         fieldWrapper.className = "metadata-field-wrapper";
         fieldWrapper.setAttribute("for", "metadata-field-" + definition.key);
@@ -68,7 +76,21 @@ MetadataInspectorView.prototype.createFields = function() {
         fieldWrapper.appendChild(input);
         this.fieldsContainer.appendChild(fieldWrapper);
         this.fields[definition.key] = input;
+        this.fieldWrappers[definition.key] = fieldWrapper;
     });
+};
+
+MetadataInspectorView.prototype.setDefinitions = function(definitions) {
+    const nextDefinitions = Array.isArray(definitions) ? definitions : METADATA_DEFINITIONS;
+    if( JSON.stringify(this.definitions) === JSON.stringify(nextDefinitions) ) return;
+
+    this.definitions = nextDefinitions.map(definition => ({
+        key: definition.key,
+        label: definition.label,
+        catalog: definition.catalog,
+        contexts: Array.isArray(definition.contexts) ? definition.contexts.slice() : null
+    }));
+    this.createFields(this.definitions);
 };
 
 MetadataInspectorView.prototype.setEvents = function(events) {
@@ -87,8 +109,12 @@ MetadataInspectorView.prototype.setCollapsed = function(collapsed) {
     }
 };
 
-MetadataInspectorView.prototype.setFieldsEnabled = function(enabled) {
-    Object.values(this.fields).forEach(field => field.disabled = !enabled);
+MetadataInspectorView.prototype.setFieldsEnabled = function(enabled, contextType) {
+    this.definitions.forEach(definition => {
+        const appliesToContext = !contextType || !definition.contexts || definition.contexts.includes(contextType);
+        this.fieldWrappers[definition.key].hidden = !appliesToContext;
+        this.fields[definition.key].disabled = !enabled || !appliesToContext;
+    });
     this.removeAllButton.disabled = !enabled;
 };
 
@@ -109,7 +135,7 @@ MetadataInspectorView.prototype.renderCatalogs = function(catalogs) {
 MetadataInspectorView.prototype.renderConfiguration = function(configurationResult) {
     const configuration = configurationResult || {};
     if( configuration.status === "loaded" && configuration.path ) {
-        this.configurationStatus.textContent = "Catalog: " + path.basename(configuration.path);
+        this.configurationStatus.textContent = "Metadata: " + path.basename(configuration.path);
         this.configurationStatus.title = configuration.path;
         this.configurationStatus.classList.remove("warning");
     } else if( configuration.path ) {
@@ -143,28 +169,29 @@ MetadataInspectorView.prototype.renderValidation = function(messages) {
 };
 
 MetadataInspectorView.prototype.renderUnavailable = function(configurationResult, messages) {
-    this.status.textContent = "No supported dialogue line selected.";
+    this.status.textContent = "No supported dialogue or choice line selected.";
     this.status.classList.add("unavailable");
     this.lineNumber.textContent = "—";
     this.contextType.textContent = "—";
     Object.values(this.fields).forEach(field => field.value = "");
-    this.setFieldsEnabled(false);
+    this.setFieldsEnabled(false, null);
     this.renderCatalogs(configurationResult && configurationResult.catalogs);
     this.renderConfiguration(configurationResult);
     this.renderValidation(messages);
 };
 
 MetadataInspectorView.prototype.renderContext = function(context, configurationResult, messages) {
-    this.status.textContent = "Editing metadata attached to the selected line.";
+    const contextLabel = context.type === "choice" ? "choice" : "dialogue";
+    this.status.textContent = "Editing metadata attached to the selected " + contextLabel + ".";
     this.status.classList.remove("unavailable");
     this.lineNumber.textContent = String(context.lineNumber);
-    this.contextType.textContent = "Dialogue";
+    this.contextType.textContent = contextLabel[0].toUpperCase() + contextLabel.substring(1);
 
     Object.keys(this.fields).forEach(key => {
         this.fields[key].value = context.metadata.values[key] || "";
     });
 
-    this.setFieldsEnabled(true);
+    this.setFieldsEnabled(true, context.type);
     this.renderCatalogs(configurationResult && configurationResult.catalogs);
     this.renderConfiguration(configurationResult);
     this.renderValidation(messages);

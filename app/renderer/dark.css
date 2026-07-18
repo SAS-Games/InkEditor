@@ -187,6 +187,11 @@
     color: #CCC;
 }
 
+.window.dark .metadata-field-origin {
+    color: #B8D5F3;
+    background: #293A4B;
+}
+
 .window.dark .metadata-field {
     background: #282828;
     border-color: #555;

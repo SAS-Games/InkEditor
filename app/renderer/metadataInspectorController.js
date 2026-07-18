@@ -1,4 +1,5 @@
 const { resolveMetadataContext } = require("./metadataContextResolver.js");
+const { discoverMetadataDefinitions } = require("./metadataDefinitions.js");
 const {
     setMetadataValue,
     removeAllManagedMetadata
@@ -16,20 +17,42 @@ let currentContext = null;
 let refreshPending = false;
 let configurationResult = loadMetadataConfiguration(null);
 
+function resolveContextWithDiscoveredDefinitions(text, cursorRow, configuredDefinitions) {
+    const baseDefinitions = Array.isArray(configuredDefinitions) ? configuredDefinitions : [];
+    let context = resolveMetadataContext(text, cursorRow, baseDefinitions);
+    if( !context ) return { context: null, definitions: baseDefinitions };
+
+    const discoveredDefinitions = discoverMetadataDefinitions(
+        context.metadata.entries,
+        baseDefinitions,
+        context.type
+    );
+    if( discoveredDefinitions.length === 0 ) {
+        return { context: context, definitions: baseDefinitions };
+    }
+
+    const combinedDefinitions = baseDefinitions.concat(discoveredDefinitions);
+    context = resolveMetadataContext(text, cursorRow, combinedDefinitions);
+    return { context: context, definitions: combinedDefinitions };
+}
+
 function refresh() {
     refreshPending = false;
 
     if( !activeInkFile ) {
         currentContext = null;
+        view.setDefinitions(configurationResult.definitions);
         view.renderUnavailable(configurationResult, validateMetadata(null, configurationResult));
         return;
     }
 
-    currentContext = resolveMetadataContext(
+    const resolved = resolveContextWithDiscoveredDefinitions(
         activeInkFile.getValue(),
         currentCursorRow,
         configurationResult.definitions
     );
+    currentContext = resolved.context;
+    view.setDefinitions(resolved.definitions);
     const messages = validateMetadata(currentContext, configurationResult);
     if( currentContext ) {
         view.renderContext(currentContext, configurationResult, messages);
@@ -112,3 +135,4 @@ exports.MetadataInspectorController = {
     documentChanged: scheduleRefresh,
     cursorChanged: cursorChanged
 };
+exports.resolveContextWithDiscoveredDefinitions = resolveContextWithDiscoveredDefinitions;

@@ -46,6 +46,13 @@ MetadataInspectorView.prototype.createFields = function(definitions) {
         const labelText = this.document.createElement("span");
         labelText.className = "metadata-field-label";
         labelText.textContent = definition.label;
+        if( definition.discovered ) {
+            const origin = this.document.createElement("span");
+            origin.className = "metadata-field-origin";
+            origin.textContent = "Custom";
+            origin.title = "Discovered from the selected Ink tag";
+            labelText.appendChild(origin);
+        }
         fieldWrapper.appendChild(labelText);
 
         const input = this.document.createElement("input");
@@ -88,7 +95,8 @@ MetadataInspectorView.prototype.setDefinitions = function(definitions) {
         key: definition.key,
         label: definition.label,
         catalog: definition.catalog,
-        contexts: Array.isArray(definition.contexts) ? definition.contexts.slice() : null
+        contexts: Array.isArray(definition.contexts) ? definition.contexts.slice() : null,
+        discovered: Boolean(definition.discovered)
     }));
     this.createFields(this.definitions);
 };

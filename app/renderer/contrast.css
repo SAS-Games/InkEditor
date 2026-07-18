@@ -186,6 +186,11 @@
     color: #FFF;
 }
 
+.window.contrast .metadata-field-origin {
+    color: #FFF;
+    background: #174A7A;
+}
+
 .window.contrast .metadata-field {
     background: #111;
     border-color: #AAA;

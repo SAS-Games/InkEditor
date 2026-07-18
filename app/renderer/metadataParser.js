@@ -11,6 +11,11 @@ function availableDefinitions(definitions) {
     return Array.isArray(definitions) ? definitions : METADATA_DEFINITIONS;
 }
 
+function definitionForCanonicalKey(canonicalKey, definitions) {
+    if( !canonicalKey ) return null;
+    return availableDefinitions(definitions).find(definition => definition.key === canonicalKey) || null;
+}
+
 function isTagLine(line) {
     return typeof line === "string" && ANY_TAG_LINE_PATTERN.test(line);
 }
@@ -27,12 +32,14 @@ function parseTagLine(line, row, definitions) {
             canonicalKey: null,
             value: null,
             isSupported: false,
+            isDiscovered: false,
             rawLine: line
         };
     }
 
     const key = match[2];
     const canonicalKey = canonicalMetadataKey(key, availableDefinitions(definitions));
+    const definition = definitionForCanonicalKey(canonicalKey, definitions);
 
     return {
         row: row,
@@ -41,6 +48,7 @@ function parseTagLine(line, row, definitions) {
         canonicalKey: canonicalKey,
         value: match[3].trim(),
         isSupported: canonicalKey != null,
+        isDiscovered: Boolean(definition && definition.discovered),
         rawLine: line
     };
 }
@@ -82,12 +90,14 @@ function parseInlineTagEntries(line, row, startColumn, endColumn, definitions) {
                 canonicalKey: null,
                 value: null,
                 isSupported: false,
+                isDiscovered: false,
                 rawText: rawText
             };
         }
 
         const key = match[1];
         const canonicalKey = canonicalMetadataKey(key, availableDefinitions(definitions));
+        const definition = definitionForCanonicalKey(canonicalKey, definitions);
         return {
             row: row,
             startColumn: column,
@@ -96,6 +106,7 @@ function parseInlineTagEntries(line, row, startColumn, endColumn, definitions) {
             canonicalKey: canonicalKey,
             value: match[2].trim(),
             isSupported: canonicalKey != null,
+            isDiscovered: Boolean(definition && definition.discovered),
             rawText: rawText
         };
     });

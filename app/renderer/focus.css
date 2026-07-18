@@ -183,6 +183,11 @@
     color: #AAA;
 }
 
+.window.focus .metadata-field-origin {
+    color: #9EBBD8;
+    background: #29333D;
+}
+
 .window.focus .metadata-field {
     background: #282828;
     border-color: #555;

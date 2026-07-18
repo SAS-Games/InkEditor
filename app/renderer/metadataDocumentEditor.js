@@ -94,7 +94,7 @@ function removeAllManagedMetadata(context) {
     if( !context ) return null;
 
     if( context.type === "choice" ) {
-        const managedEntries = context.metadata.entries.filter(entry => entry.isSupported);
+        const managedEntries = context.metadata.entries.filter(entry => entry.isSupported && !entry.isDiscovered);
         if( managedEntries.length === 0 ) return null;
 
         const updatedLine = removeChoiceEntries(context.lines[context.choiceRow], managedEntries);
@@ -104,7 +104,7 @@ function removeAllManagedMetadata(context) {
     if( context.blockStart > context.blockEnd ) return null;
 
     const remainingLines = context.metadata.entries
-        .filter(entry => !entry.isSupported)
+        .filter(entry => !entry.isSupported || entry.isDiscovered)
         .map(entry => entry.rawLine);
 
     if( remainingLines.length === context.metadata.entries.length ) return null;

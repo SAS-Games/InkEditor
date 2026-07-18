@@ -214,7 +214,7 @@ function resolveMetadataContext(text, cursorRow, definitions) {
     let blockEnd = row - 1;
 
     const tagAtCursor = parseTagLine(lines[row], row, dialogueDefinitions);
-    if( tagAtCursor && tagAtCursor.isSupported ) {
+    if( tagAtCursor && tagAtCursor.key ) {
         const block = findTagBlock(lines, row);
         blockStart = block.blockStart;
         blockEnd = block.blockEnd;

@@ -3,11 +3,11 @@ const path = require("path");
 
 const {
     METADATA_DEFINITIONS,
-    METADATA_KEY_PATTERN,
-    METADATA_CONTEXTS
+    METADATA_CONTEXTS,
+    isValidMetadataKey,
+    normalizeMetadataKey,
+    labelFromMetadataKey
 } = require("./metadataDefinitions.js");
-
-const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
 function metadataPathForMainInk(mainInkPath) {
     if( !mainInkPath ) return null;
@@ -39,11 +39,6 @@ function result(status, configPath, catalogs, warnings, configuration, definitio
         configuration: configuration || null,
         definitions: definitions || copyBuiltInDefinitions()
     };
-}
-
-function labelFromKey(key) {
-    const words = key.replace(/[_.-]+/g, " ").trim();
-    return words.length ? words[0].toUpperCase() + words.substring(1) : key;
 }
 
 function parseContexts(tagDefinition, fallbackContexts, key, warnings) {
@@ -101,8 +96,8 @@ function buildConfiguration(configuration, warnings) {
     const tags = configuration.tags || {};
 
     Object.keys(tags).forEach(configuredKey => {
-        const canonicalKey = configuredKey.trim().toLowerCase();
-        if( !METADATA_KEY_PATTERN.test(configuredKey) || UNSAFE_KEYS.has(canonicalKey) ) {
+        const canonicalKey = normalizeMetadataKey(configuredKey);
+        if( !isValidMetadataKey(configuredKey) ) {
             warnings.push("Ignored invalid metadata tag key '" + configuredKey + "'.");
             return;
         }
@@ -127,7 +122,7 @@ function buildConfiguration(configuration, warnings) {
 
             definition = {
                 key: canonicalKey,
-                label: labelFromKey(canonicalKey),
+                label: labelFromMetadataKey(canonicalKey),
                 catalog: false,
                 contexts: METADATA_CONTEXTS.slice()
             };

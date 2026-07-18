@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "tags": {
+    "speaker": {
+      "values": ["player", "guard", "merchant"]
+    },
+    "portrait": {
+      "values": ["neutral", "happy", "angry", "concerned"]
+    },
+    "animation": {
+      "values": ["Idle", "Talk", "TalkHappy", "TalkAngry"]
+    },
+    "audio": {
+      "values": ["guard_warning_01", "guard_explanation_01", "merchant_greeting_01"]
+    }
+  }
+}

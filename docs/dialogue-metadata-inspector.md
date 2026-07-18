@@ -88,14 +88,24 @@ Bob: I agree. // dialogue: active speaker plus optional listener
 
 ## Project-defined custom fields
 
-Place a JSON file beside the main Ink story and give it the main story's base name plus `.metadata.json`:
+Use the inspector's **Configuration** tab to manage project fields without writing JSON by hand. The workflow is:
+
+1. Save the main `.ink` story so Inky knows where the project sidecar belongs.
+2. Open **Configuration** in the right inspector.
+3. Select a built-in field to set its label, Dialogue/Choice availability, and suggested values, then choose **Save field**.
+4. Under **Add custom field**, enter a tag key such as `listener` or `listener_portrait`. New custom fields start in both Dialogue and Choice contexts; select the new field afterward if you want to narrow it.
+5. Return to **Metadata** to assign the configured fields on dialogue and choice lines.
+
+Suggested values are one per line. They provide autocomplete choices while remaining editable, so a writer can still enter a value that is not in the list. **Reset override** restores a built-in field's defaults. **Remove field** removes a custom field from project configuration; it does not delete tags already written in `.ink` files.
+
+The Configuration tab creates a JSON file beside the main Ink story using the main story's base name plus `.metadata.json`:
 
 ```text
 story.ink
 story.metadata.json
 ```
 
-Schema Version 2 can add fields without changing Inky's JavaScript:
+The UI writes Schema Version 2. The resulting file can still be reviewed, version-controlled, or edited by advanced users:
 
 ```json
 {
@@ -136,7 +146,7 @@ Each entry supports:
 
 Custom keys must match `^[A-Za-z][A-Za-z0-9_.-]*$`. Keys are written in lowercase. The built-in field entries may also supply catalogs, labels, or narrower contexts. Schema Version 1 configurations remain compatible for built-in catalogs, but custom fields require Version 2.
 
-The configuration is parsed strictly as JSON and is never evaluated as JavaScript. Missing, malformed, or invalid configuration produces non-blocking warnings and leaves the built-in free-text fields available.
+The editor preserves unrelated top-level properties and unrelated properties inside an existing tag definition. It re-reads the file before every write so external changes are retained. The configuration is parsed strictly as JSON and is never evaluated as JavaScript. If the file is malformed, Configuration editing is disabled and Inky will not overwrite it; fix the JSON manually and reopen or save the project to reload it. Missing or invalid configuration produces non-blocking warnings and leaves the built-in free-text fields available.
 
 See `examples/dialogue-metadata/` for a complete story containing dialogue metadata, optional listener roles, choice metadata, configured custom fields, and an automatically discovered tag.
 
@@ -185,6 +195,6 @@ The inherited Spectron suite is retained separately as `npm run test:e2e`; it re
 
 - Regular dialogue uses tag-only lines above the content; inline tags at the end of regular dialogue are not managed.
 - Choice metadata is limited to a single choice line and does not resolve invisible fallback or multiline conditional choices.
-- The configuration file is loaded when a project opens and after the main story is saved; it is not watched continuously and is not a metadata assignment store.
+- The configuration file is loaded when a project opens, after the main story is saved, and after every Configuration-tab edit. External edits are not watched continuously; save or reopen the project to reload them. The sidecar is field configuration, not a metadata assignment store.
 - An undeclared custom field appears only when that tag already exists in the selected context. Declare it in `.metadata.json` when writers need an empty field available for new assignments.
 - The current LittleAdventure Unity runtime uses a compound `speaker:id::..., image::..., anim::...` value and commonly writes `local`. It accepts canonical `locale` and `audio`, but it does not yet consume separate `portrait`, `animation`, line `id`, or project-defined custom tags. Unity integration requires a separate runtime adapter or processor update.

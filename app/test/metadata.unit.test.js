@@ -15,6 +15,11 @@ const {
     metadataPathForMainInk,
     loadMetadataConfiguration
 } = require("../renderer/metadataConfigurationLoader.js");
+const {
+    canEditMetadataConfiguration,
+    saveMetadataField,
+    removeMetadataField
+} = require("../renderer/metadataConfigurationEditor.js");
 const { validateMetadata } = require("../renderer/metadataValidator.js");
 const { MetadataInspectorView } = require("../renderer/metadataInspectorView.js");
 const { METADATA_DEFINITIONS } = require("../renderer/metadataDefinitions.js");
@@ -569,12 +574,148 @@ describe("metadata configuration loading", function() {
     });
 });
 
+describe("metadata configuration editing", function() {
+    const temporaryDirectories = [];
+
+    afterEach(function() {
+        temporaryDirectories.splice(0).forEach(directory => {
+            fs.rmSync(directory, { recursive: true, force: true });
+        });
+    });
+
+    function createStoryDirectory() {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "inky-metadata-editor-"));
+        temporaryDirectories.push(directory);
+        const mainInkPath = path.join(directory, "story.ink");
+        fs.writeFileSync(mainInkPath, "Hello.", "utf8");
+        return { mainInkPath: mainInkPath, configPath: metadataPathForMainInk(mainInkPath) };
+    }
+
+    it("creates a schemaVersion 2 sidecar from the Configuration tab model", function() {
+        const story = createStoryDirectory();
+        const missing = loadMetadataConfiguration(story.mainInkPath);
+
+        assert.equal(canEditMetadataConfiguration(missing), true);
+        saveMetadataField(missing, {
+            key: "Listener",
+            label: "Listener",
+            contexts: ["dialogue"],
+            values: ["player", "guard", "player", " "]
+        });
+
+        const file = JSON.parse(fs.readFileSync(story.configPath, "utf8"));
+        const loaded = loadMetadataConfiguration(story.mainInkPath);
+        assert.equal(file.schemaVersion, 2);
+        assert.deepEqual(file.tags.listener, {
+            label: "Listener",
+            contexts: ["dialogue"],
+            values: ["player", "guard"]
+        });
+        assert.deepEqual(loaded.catalogs.listener, ["player", "guard"]);
+        assert(loaded.definitions.some(definition => definition.key === "listener"));
+    });
+
+    it("preserves unknown JSON properties while updating and canonicalizing a field", function() {
+        const story = createStoryDirectory();
+        fs.writeFileSync(story.configPath, JSON.stringify({
+            schemaVersion: 2,
+            runtime: { namespace: "LittleAdventure" },
+            tags: {
+                Mood: {
+                    label: "Mood",
+                    contexts: ["dialogue"],
+                    runtimeBinding: "emotion"
+                }
+            }
+        }), "utf8");
+
+        const loadedBeforeExternalChange = loadMetadataConfiguration(story.mainInkPath);
+        const externallyChangedFile = JSON.parse(fs.readFileSync(story.configPath, "utf8"));
+        externallyChangedFile.addedAfterLoad = { keep: true };
+        fs.writeFileSync(story.configPath, JSON.stringify(externallyChangedFile), "utf8");
+
+        saveMetadataField(loadedBeforeExternalChange, {
+            key: "mood",
+            label: "Emotional State",
+            contexts: ["dialogue", "choice"],
+            values: ["calm", "suspicious"]
+        });
+
+        const file = JSON.parse(fs.readFileSync(story.configPath, "utf8"));
+        assert.deepEqual(file.runtime, { namespace: "LittleAdventure" });
+        assert.deepEqual(file.addedAfterLoad, { keep: true });
+        assert.equal(file.tags.Mood, undefined);
+        assert.equal(file.tags.mood.runtimeBinding, "emotion");
+        assert.equal(file.tags.mood.label, "Emotional State");
+        assert.deepEqual(file.tags.mood.contexts, ["dialogue", "choice"]);
+    });
+
+    it("removes custom fields and resets built-in overrides without touching other entries", function() {
+        const story = createStoryDirectory();
+        fs.writeFileSync(story.configPath, JSON.stringify({
+            schemaVersion: 2,
+            tags: {
+                speaker: { values: ["alice", "bob"], contexts: ["dialogue"] },
+                listener: { contexts: ["dialogue"] },
+                mood: { contexts: ["dialogue", "choice"] }
+            }
+        }), "utf8");
+
+        removeMetadataField(loadMetadataConfiguration(story.mainInkPath), "listener");
+        removeMetadataField(loadMetadataConfiguration(story.mainInkPath), "speaker");
+
+        const file = JSON.parse(fs.readFileSync(story.configPath, "utf8"));
+        assert.equal(file.tags.listener, undefined);
+        assert.equal(file.tags.speaker, undefined);
+        assert.deepEqual(file.tags.mood, { contexts: ["dialogue", "choice"] });
+        assert(loadMetadataConfiguration(story.mainInkPath).definitions.some(definition => definition.key === "speaker"));
+    });
+
+    it("refuses to overwrite malformed or newly corrupted JSON", function() {
+        const story = createStoryDirectory();
+        fs.writeFileSync(story.configPath, "{ broken", "utf8");
+        const malformed = loadMetadataConfiguration(story.mainInkPath);
+        assert.equal(canEditMetadataConfiguration(malformed), false);
+        assert.throws(() => saveMetadataField(malformed, {
+            key: "mood",
+            contexts: ["dialogue"]
+        }), /malformed/i);
+        assert.equal(fs.readFileSync(story.configPath, "utf8"), "{ broken");
+
+        fs.writeFileSync(story.configPath, JSON.stringify({ schemaVersion: 2, tags: {} }), "utf8");
+        const loaded = loadMetadataConfiguration(story.mainInkPath);
+        fs.writeFileSync(story.configPath, "{ changed and broken", "utf8");
+        assert.throws(() => saveMetadataField(loaded, {
+            key: "mood",
+            contexts: ["dialogue"]
+        }), /changed.*valid JSON/i);
+        assert.equal(fs.readFileSync(story.configPath, "utf8"), "{ changed and broken");
+    });
+
+    it("validates field keys, labels, and contexts before writing", function() {
+        const story = createStoryDirectory();
+        const missing = loadMetadataConfiguration(story.mainInkPath);
+        assert.throws(() => saveMetadataField(missing, {
+            key: "bad key",
+            contexts: ["dialogue"]
+        }), /Field keys/);
+        assert.throws(() => saveMetadataField(missing, {
+            key: "mood",
+            contexts: []
+        }), /Choose Dialogue/);
+        assert.equal(fs.existsSync(story.configPath), false);
+    });
+});
+
 describe("metadata inspector fields", function() {
     function createView() {
         const dom = new JSDOM([
             "<main id='main'>",
             "<aside id='metadata-inspector'>",
             "<button class='metadata-collapse'></button>",
+            "<button data-metadata-tab='metadata'></button>",
+            "<button data-metadata-tab='configuration'></button>",
+            "<section data-metadata-panel='metadata'>",
             "<p class='metadata-selection-status'></p>",
             "<span class='metadata-line-number'></span>",
             "<span class='metadata-context-type'></span>",
@@ -582,6 +723,25 @@ describe("metadata inspector fields", function() {
             "<div class='metadata-fields'></div>",
             "<ul class='metadata-validation-list'></ul>",
             "<button class='metadata-remove-all'></button>",
+            "</section>",
+            "<section data-metadata-panel='configuration' hidden>",
+            "<p class='metadata-configuration-editor-status'></p>",
+            "<select class='metadata-configuration-field'></select>",
+            "<input class='metadata-configuration-label-input'>",
+            "<fieldset class='metadata-configuration-contexts'>",
+            "<input type='checkbox' value='dialogue'>",
+            "<input type='checkbox' value='choice'>",
+            "</fieldset>",
+            "<textarea class='metadata-configuration-values'></textarea>",
+            "<button class='metadata-configuration-save'></button>",
+            "<button class='metadata-configuration-remove'></button>",
+            "<form class='metadata-custom-field-form'>",
+            "<input class='metadata-custom-field-key'>",
+            "<input class='metadata-custom-field-label'>",
+            "<button class='metadata-custom-field-add' type='submit'></button>",
+            "</form>",
+            "<p class='metadata-configuration-feedback'></p>",
+            "</section>",
             "</aside>",
             "</main>"
         ].join(""));
@@ -640,5 +800,57 @@ describe("metadata inspector fields", function() {
         const badge = testView.view.fieldWrappers.quest.querySelector(".metadata-field-origin");
         assert.equal(badge.textContent, "Custom");
         assert.match(badge.title, /selected Ink tag/);
+    });
+
+    it("switches tabs and routes configuration field edits", function() {
+        const testView = createView();
+        let saved = null;
+        let activeTab = null;
+        testView.view.setEvents({
+            tabChanged: tab => activeTab = tab,
+            configurationFieldSaved: field => saved = field
+        });
+        testView.view.selectConfigurationField("listener");
+        testView.view.renderConfigurationEditor({
+            status: "loaded",
+            path: "story.metadata.json",
+            configuration: {
+                schemaVersion: 2,
+                tags: { listener: { label: "Listener", contexts: ["dialogue"], values: ["alice"] } }
+            },
+            definitions: [{ key: "listener", label: "Listener", contexts: ["dialogue"], catalog: true }],
+            catalogs: { listener: ["alice"] }
+        });
+
+        const configurationTab = testView.dom.window.document.querySelector("[data-metadata-tab='configuration']");
+        configurationTab.click();
+        assert.equal(activeTab, "configuration");
+        assert.equal(testView.dom.window.document.querySelector("[data-metadata-panel='configuration']").hidden, false);
+
+        testView.view.configurationLabel.value = "Primary Listener";
+        testView.view.configurationContexts.find(input => input.value === "choice").checked = true;
+        testView.view.configurationValues.value = "alice\nbob";
+        testView.view.configurationSave.click();
+        assert.deepEqual(saved, {
+            key: "listener",
+            label: "Primary Listener",
+            contexts: ["dialogue", "choice"],
+            values: ["alice", "bob"]
+        });
+    });
+
+    it("disables configuration writes for malformed JSON", function() {
+        const testView = createView();
+        testView.view.renderConfigurationEditor({
+            status: "malformed",
+            path: "story.metadata.json",
+            configuration: null,
+            definitions: METADATA_DEFINITIONS,
+            catalogs: {}
+        });
+
+        assert.equal(testView.view.configurationSave.disabled, true);
+        assert.equal(testView.view.customFieldAdd.disabled, true);
+        assert.match(testView.view.configurationEditorStatus.textContent, /will not overwrite/i);
     });
 });

@@ -5,6 +5,11 @@ const {
     removeAllManagedMetadata
 } = require("./metadataDocumentEditor.js");
 const { loadMetadataConfiguration } = require("./metadataConfigurationLoader.js");
+const {
+    saveMetadataField,
+    removeMetadataField
+} = require("./metadataConfigurationEditor.js");
+const { METADATA_KEYS, normalizeMetadataKey } = require("./metadataDefinitions.js");
 const { validateMetadata } = require("./metadataValidator.js");
 const { MetadataInspectorView } = require("./metadataInspectorView.js");
 
@@ -67,13 +72,21 @@ function scheduleRefresh() {
     setImmediate(refresh);
 }
 
-function reloadConfiguration() {
+function reloadConfiguration(message) {
     const mainInkPath = currentProject && currentProject.mainInk
         ? currentProject.mainInk.absolutePath()
         : null;
     configurationResult = loadMetadataConfiguration(mainInkPath);
-    if( view ) view.setDefinitions(configurationResult.definitions);
+    if( view ) {
+        view.setDefinitions(configurationResult.definitions);
+        view.renderConfigurationEditor(configurationResult);
+        if( message ) view.renderConfigurationEditorMessage(message, false);
+    }
     scheduleRefresh();
+}
+
+function reportConfigurationError(error) {
+    view.renderConfigurationEditorMessage(error && error.message ? error.message : String(error), true);
 }
 
 function applyEdit(edit) {
@@ -102,10 +115,47 @@ function initialize(newEditorView) {
         collapsedChanged: collapsed => {
             view.setCollapsed(collapsed);
             window.localStorage.setItem("inky.metadataInspector.collapsed", collapsed ? "true" : "false");
+        },
+        tabChanged: tab => {
+            window.localStorage.setItem("inky.metadataInspector.activeTab", tab);
+        },
+        configurationFieldSaved: field => {
+            try {
+                saveMetadataField(configurationResult, field);
+                view.selectConfigurationField(field.key);
+                reloadConfiguration("Saved the " + normalizeMetadataKey(field.key) + " field.");
+            } catch(error) {
+                reportConfigurationError(error);
+            }
+        },
+        configurationFieldRemoved: key => {
+            try {
+                removeMetadataField(configurationResult, key);
+                view.selectConfigurationField(key);
+                reloadConfiguration((METADATA_KEYS.includes(key) ? "Reset" : "Removed") + " the " + key + " field configuration.");
+            } catch(error) {
+                reportConfigurationError(error);
+            }
+        },
+        configurationFieldAdded: field => {
+            try {
+                const canonicalKey = normalizeMetadataKey(field.key);
+                if( configurationResult.definitions.some(definition => definition.key === canonicalKey) ) {
+                    throw new Error("A field with that key already exists. Select it above to edit it.");
+                }
+                saveMetadataField(configurationResult, field);
+                view.selectConfigurationField(field.key);
+                view.clearCustomFieldForm();
+                reloadConfiguration("Added the " + canonicalKey + " field.");
+            } catch(error) {
+                reportConfigurationError(error);
+            }
         }
     });
 
     view.setCollapsed(window.localStorage.getItem("inky.metadataInspector.collapsed") === "true");
+    view.setActiveTab(window.localStorage.getItem("inky.metadataInspector.activeTab"));
+    view.renderConfigurationEditor(configurationResult);
     refresh();
 }
 

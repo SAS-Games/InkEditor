@@ -147,30 +147,75 @@
             <div class="metadata-inspector-collapsed-label">Metadata</div>
 
             <div class="metadata-inspector-body">
-              <p class="metadata-selection-status">No supported dialogue or choice line selected.</p>
+              <div class="metadata-tabs" role="tablist" aria-label="Metadata inspector views">
+                <button type="button" class="metadata-tab active" role="tab" aria-selected="true" data-metadata-tab="metadata">Metadata</button>
+                <button type="button" class="metadata-tab" role="tab" aria-selected="false" data-metadata-tab="configuration">Configuration</button>
+              </div>
 
-              <dl class="metadata-context-summary">
-                <div>
-                  <dt>Selected line</dt>
-                  <dd class="metadata-line-number">—</dd>
-                </div>
-                <div>
-                  <dt>Context</dt>
-                  <dd class="metadata-context-type">—</dd>
-                </div>
-              </dl>
+              <section class="metadata-tab-panel" data-metadata-panel="metadata">
+                <p class="metadata-selection-status">No supported dialogue or choice line selected.</p>
 
-              <p class="metadata-configuration-status"></p>
-              <div class="metadata-fields"></div>
+                <dl class="metadata-context-summary">
+                  <div>
+                    <dt>Selected line</dt>
+                    <dd class="metadata-line-number">—</dd>
+                  </div>
+                  <div>
+                    <dt>Context</dt>
+                    <dd class="metadata-context-type">—</dd>
+                  </div>
+                </dl>
 
-              <section class="metadata-validation" aria-live="polite">
-                <h3>Validation</h3>
-                <ul class="metadata-validation-list"></ul>
+                <p class="metadata-configuration-status"></p>
+                <div class="metadata-fields"></div>
+
+                <section class="metadata-validation" aria-live="polite">
+                  <h3>Validation</h3>
+                  <ul class="metadata-validation-list"></ul>
+                </section>
+
+                <button type="button" class="btn btn-negative metadata-remove-all">
+                  Remove all managed metadata
+                </button>
               </section>
 
-              <button type="button" class="btn btn-negative metadata-remove-all">
-                Remove all managed metadata
-              </button>
+              <section class="metadata-tab-panel metadata-configuration-panel" data-metadata-panel="configuration" hidden>
+                <p class="metadata-configuration-editor-status"></p>
+
+                <div class="metadata-configuration-form">
+                  <label class="metadata-configuration-label" for="metadata-configuration-field">Field</label>
+                  <select id="metadata-configuration-field" class="form-control metadata-configuration-field"></select>
+
+                  <label class="metadata-configuration-label" for="metadata-configuration-label">Display label</label>
+                  <input id="metadata-configuration-label" class="form-control metadata-configuration-label-input" type="text" maxlength="80" autocomplete="off" placeholder="Generated from the field key">
+
+                  <fieldset class="metadata-configuration-contexts">
+                    <legend>Available for</legend>
+                    <label><input type="checkbox" value="dialogue"> Dialogue</label>
+                    <label><input type="checkbox" value="choice"> Choice</label>
+                  </fieldset>
+
+                  <label class="metadata-configuration-label" for="metadata-configuration-values">Suggested values</label>
+                  <textarea id="metadata-configuration-values" class="form-control metadata-configuration-values" rows="6" placeholder="One suggestion per line"></textarea>
+                  <p class="metadata-configuration-help">Suggestions stay editable and are not enforced as an enum.</p>
+
+                  <div class="metadata-configuration-actions">
+                    <button type="button" class="btn btn-primary metadata-configuration-save">Save field</button>
+                    <button type="button" class="btn btn-default metadata-configuration-remove">Reset override</button>
+                  </div>
+                </div>
+
+                <form class="metadata-custom-field-form">
+                  <h3>Add custom field</h3>
+                  <label class="metadata-configuration-label" for="metadata-custom-field-key">Tag key</label>
+                  <input id="metadata-custom-field-key" class="form-control metadata-custom-field-key" type="text" autocomplete="off" placeholder="listener_portrait">
+                  <label class="metadata-configuration-label" for="metadata-custom-field-label">Display label <span>(optional)</span></label>
+                  <input id="metadata-custom-field-label" class="form-control metadata-custom-field-label" type="text" maxlength="80" autocomplete="off" placeholder="Listener Portrait">
+                  <button type="submit" class="btn btn-default metadata-custom-field-add">Add field</button>
+                </form>
+
+                <p class="metadata-configuration-feedback" role="status" aria-live="polite"></p>
+              </section>
             </div>
           </aside>
         </div>

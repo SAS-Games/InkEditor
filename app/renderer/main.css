@@ -576,6 +576,44 @@ img.issue-icon.warning {
   padding: 12px;
 }
 
+.metadata-tabs {
+  display: flex;
+  margin: -12px -12px 12px;
+  border-bottom: 1px solid #DDD;
+}
+
+.metadata-tab {
+  flex: 1;
+  height: 34px;
+  padding: 0 6px;
+  border: 0;
+  border-right: 1px solid #DDD;
+  background: #F5F5F5;
+  color: #777;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metadata-tab:last-child {
+  border-right: 0;
+}
+
+.metadata-tab:hover {
+  background: #EEE;
+  color: #444;
+}
+
+.metadata-tab.active {
+  background: white;
+  color: #333;
+  box-shadow: inset 0 -2px #6C86A2;
+}
+
+.metadata-tab-panel[hidden] {
+  display: none;
+}
+
 #metadata-inspector.collapsed .metadata-inspector-body,
 #metadata-inspector.collapsed .metadata-inspector-header h2 {
   display: none;
@@ -724,6 +762,128 @@ img.issue-icon.warning {
   width: 100%;
   min-height: 30px;
   white-space: normal;
+}
+
+.metadata-configuration-editor-status {
+  min-height: 32px;
+  margin: 0 0 12px;
+  color: #66788A;
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.metadata-configuration-editor-status.warning {
+  color: #9A6A0A;
+}
+
+.metadata-configuration-label {
+  display: block;
+  margin: 10px 0 4px;
+  color: #555;
+  font-weight: 600;
+}
+
+.metadata-configuration-label:first-child {
+  margin-top: 0;
+}
+
+.metadata-configuration-label span {
+  color: #888;
+  font-weight: 400;
+}
+
+.metadata-configuration-field,
+.metadata-configuration-label-input,
+.metadata-configuration-values,
+.metadata-custom-field-key,
+.metadata-custom-field-label {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+}
+
+.metadata-configuration-field,
+.metadata-configuration-label-input,
+.metadata-custom-field-key,
+.metadata-custom-field-label {
+  height: 28px;
+}
+
+.metadata-configuration-values {
+  min-height: 92px;
+  padding: 6px;
+  resize: vertical;
+}
+
+.metadata-configuration-contexts {
+  display: flex;
+  gap: 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.metadata-configuration-contexts legend {
+  width: 100%;
+  margin-bottom: 5px;
+  color: #555;
+  font-weight: 600;
+}
+
+.metadata-configuration-contexts label {
+  cursor: pointer;
+}
+
+.metadata-configuration-help {
+  margin: 4px 0 0;
+  color: #888;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.metadata-configuration-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.metadata-configuration-actions .btn {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+}
+
+.metadata-custom-field-form {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #DDD;
+}
+
+.metadata-custom-field-form h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.metadata-custom-field-add {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.metadata-configuration-feedback {
+  min-height: 16px;
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.metadata-configuration-feedback.error {
+  color: #A43B32;
+}
+
+.metadata-configuration-feedback.success {
+  color: #527A52;
 }
 
 @media (max-width: 850px) {

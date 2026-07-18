@@ -1,6 +1,15 @@
 const path = require("path");
 
-const { METADATA_DEFINITIONS } = require("./metadataDefinitions.js");
+const {
+    METADATA_DEFINITIONS,
+    normalizeMetadataKey
+} = require("./metadataDefinitions.js");
+const {
+    configuredTag,
+    canEditMetadataConfiguration
+} = require("./metadataConfigurationEditor.js");
+
+const BUILT_IN_KEYS = new Set(METADATA_DEFINITIONS.map(definition => definition.key));
 
 function MetadataInspectorView(documentObject) {
     this.document = documentObject;
@@ -14,20 +23,67 @@ function MetadataInspectorView(documentObject) {
     this.validationList = this.root.querySelector(".metadata-validation-list");
     this.removeAllButton = this.root.querySelector(".metadata-remove-all");
     this.collapseButton = this.root.querySelector(".metadata-collapse");
+    this.tabButtons = Array.from(this.root.querySelectorAll("[data-metadata-tab]"));
+    this.tabPanels = Array.from(this.root.querySelectorAll("[data-metadata-panel]"));
+    this.configurationEditorStatus = this.root.querySelector(".metadata-configuration-editor-status");
+    this.configurationField = this.root.querySelector(".metadata-configuration-field");
+    this.configurationLabel = this.root.querySelector(".metadata-configuration-label-input");
+    this.configurationContexts = Array.from(this.root.querySelectorAll(".metadata-configuration-contexts input"));
+    this.configurationValues = this.root.querySelector(".metadata-configuration-values");
+    this.configurationSave = this.root.querySelector(".metadata-configuration-save");
+    this.configurationRemove = this.root.querySelector(".metadata-configuration-remove");
+    this.customFieldForm = this.root.querySelector(".metadata-custom-field-form");
+    this.customFieldKey = this.root.querySelector(".metadata-custom-field-key");
+    this.customFieldLabel = this.root.querySelector(".metadata-custom-field-label");
+    this.customFieldAdd = this.root.querySelector(".metadata-custom-field-add");
+    this.configurationFeedback = this.root.querySelector(".metadata-configuration-feedback");
     this.fields = {};
     this.fieldWrappers = {};
     this.catalogLists = {};
     this.definitions = [];
+    this.configurationResult = null;
+    this.configurationSelectedKey = null;
     this.events = {
         fieldChanged: () => {},
         removeAll: () => {},
-        collapsedChanged: () => {}
+        collapsedChanged: () => {},
+        tabChanged: () => {},
+        configurationFieldSaved: () => {},
+        configurationFieldRemoved: () => {},
+        configurationFieldAdded: () => {}
     };
 
     this.setDefinitions(METADATA_DEFINITIONS);
     this.removeAllButton.addEventListener("click", () => this.events.removeAll());
     this.collapseButton.addEventListener("click", () => {
         this.events.collapsedChanged(!this.main.classList.contains("metadata-inspector-collapsed"));
+    });
+    this.tabButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const tab = button.dataset.metadataTab;
+            this.setActiveTab(tab);
+            this.events.tabChanged(tab);
+        });
+    });
+    this.configurationField.addEventListener("change", () => {
+        this.configurationSelectedKey = this.configurationField.value;
+        this.populateConfigurationField();
+        this.renderConfigurationEditorMessage("");
+    });
+    this.configurationSave.addEventListener("click", () => {
+        this.events.configurationFieldSaved(this.configurationFieldPayload());
+    });
+    this.configurationRemove.addEventListener("click", () => {
+        this.events.configurationFieldRemoved(this.configurationField.value);
+    });
+    this.customFieldForm.addEventListener("submit", event => {
+        event.preventDefault();
+        this.events.configurationFieldAdded({
+            key: this.customFieldKey.value,
+            label: this.customFieldLabel.value,
+            contexts: ["dialogue", "choice"],
+            values: []
+        });
     });
 }
 
@@ -108,13 +164,25 @@ MetadataInspectorView.prototype.setEvents = function(events) {
 MetadataInspectorView.prototype.setCollapsed = function(collapsed) {
     this.main.classList.toggle("metadata-inspector-collapsed", collapsed);
     this.root.classList.toggle("collapsed", collapsed);
-    this.collapseButton.textContent = collapsed ? "‹" : "›";
+    this.collapseButton.textContent = collapsed ? "\u2039" : "\u203a";
     this.collapseButton.title = collapsed ? "Expand metadata inspector" : "Collapse metadata inspector";
     this.collapseButton.setAttribute("aria-expanded", collapsed ? "false" : "true");
 
     if( typeof ace !== "undefined" ) {
         setImmediate(() => ace.edit("editor").resize());
     }
+};
+
+MetadataInspectorView.prototype.setActiveTab = function(tab) {
+    const activeTab = tab === "configuration" ? "configuration" : "metadata";
+    this.tabButtons.forEach(button => {
+        const active = button.dataset.metadataTab === activeTab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    this.tabPanels.forEach(panel => {
+        panel.hidden = panel.dataset.metadataPanel !== activeTab;
+    });
 };
 
 MetadataInspectorView.prototype.setFieldsEnabled = function(enabled, contextType) {
@@ -157,6 +225,113 @@ MetadataInspectorView.prototype.renderConfiguration = function(configurationResu
     }
 };
 
+MetadataInspectorView.prototype.configurationFieldPayload = function() {
+    return {
+        key: this.configurationField.value,
+        label: this.configurationLabel.value,
+        contexts: this.configurationContexts.filter(input => input.checked).map(input => input.value),
+        values: this.configurationValues.value.split(/\r?\n/)
+    };
+};
+
+MetadataInspectorView.prototype.selectConfigurationField = function(key) {
+    this.configurationSelectedKey = normalizeMetadataKey(key);
+};
+
+MetadataInspectorView.prototype.clearCustomFieldForm = function() {
+    this.customFieldKey.value = "";
+    this.customFieldLabel.value = "";
+};
+
+MetadataInspectorView.prototype.populateConfigurationField = function() {
+    const result = this.configurationResult || {};
+    const definition = (result.definitions || []).find(candidate => candidate.key === this.configurationField.value);
+    const editable = canEditMetadataConfiguration(result);
+    if( !definition ) {
+        this.configurationLabel.value = "";
+        this.configurationValues.value = "";
+        this.configurationContexts.forEach(input => input.checked = false);
+        this.configurationSave.disabled = true;
+        this.configurationRemove.disabled = true;
+        return;
+    }
+
+    const configured = configuredTag(result, definition.key);
+    const rawDefinition = configured && configured.definition && !Array.isArray(configured.definition) && typeof configured.definition === "object"
+        ? configured.definition
+        : {};
+    this.configurationLabel.value = typeof rawDefinition.label === "string" ? rawDefinition.label : "";
+    this.configurationLabel.placeholder = definition.label || "Generated from the field key";
+    this.configurationContexts.forEach(input => {
+        input.checked = Array.isArray(definition.contexts) && definition.contexts.includes(input.value);
+    });
+    const values = result.catalogs && Array.isArray(result.catalogs[definition.key])
+        ? result.catalogs[definition.key]
+        : [];
+    this.configurationValues.value = values.join("\n");
+
+    this.configurationLabel.disabled = !editable;
+    this.configurationContexts.forEach(input => input.disabled = !editable);
+    this.configurationValues.disabled = !editable;
+    this.configurationSave.disabled = !editable;
+    this.configurationRemove.disabled = !editable || !configured;
+    this.configurationRemove.textContent = BUILT_IN_KEYS.has(definition.key) ? "Reset override" : "Remove field";
+};
+
+MetadataInspectorView.prototype.renderConfigurationEditor = function(configurationResult) {
+    this.configurationResult = configurationResult || {};
+    const result = this.configurationResult;
+    const editable = canEditMetadataConfiguration(result);
+    const previousKey = this.configurationSelectedKey || this.configurationField.value;
+    while(this.configurationField.firstChild) this.configurationField.removeChild(this.configurationField.firstChild);
+
+    (result.definitions || METADATA_DEFINITIONS).forEach(definition => {
+        const option = this.document.createElement("option");
+        option.value = definition.key;
+        option.textContent = definition.label + " (" + definition.key + ")";
+        this.configurationField.appendChild(option);
+    });
+    const selectableKey = Array.from(this.configurationField.options).some(option => option.value === previousKey)
+        ? previousKey
+        : (this.configurationField.options[0] ? this.configurationField.options[0].value : "");
+    this.configurationField.value = selectableKey;
+    this.configurationSelectedKey = selectableKey;
+    this.configurationField.disabled = this.configurationField.options.length === 0;
+
+    if( !result.path ) {
+        this.configurationEditorStatus.textContent = "Save the main Ink story before configuring metadata.";
+        this.configurationEditorStatus.removeAttribute("title");
+        this.configurationEditorStatus.classList.add("warning");
+    } else if( result.status === "malformed" ) {
+        this.configurationEditorStatus.textContent = "This JSON is malformed. Fix it manually; Inky will not overwrite it.";
+        this.configurationEditorStatus.title = result.path;
+        this.configurationEditorStatus.classList.add("warning");
+    } else if( result.status === "missing" ) {
+        this.configurationEditorStatus.textContent = "No sidecar yet. Saving a field creates " + path.basename(result.path) + ".";
+        this.configurationEditorStatus.title = result.path;
+        this.configurationEditorStatus.classList.remove("warning");
+    } else if( result.status === "invalid" ) {
+        this.configurationEditorStatus.textContent = "Saving a field upgrades this configuration to schemaVersion 2.";
+        this.configurationEditorStatus.title = result.path;
+        this.configurationEditorStatus.classList.add("warning");
+    } else {
+        this.configurationEditorStatus.textContent = "Editing " + path.basename(result.path) + ".";
+        this.configurationEditorStatus.title = result.path;
+        this.configurationEditorStatus.classList.remove("warning");
+    }
+
+    this.customFieldKey.disabled = !editable;
+    this.customFieldLabel.disabled = !editable;
+    this.customFieldAdd.disabled = !editable;
+    this.populateConfigurationField();
+};
+
+MetadataInspectorView.prototype.renderConfigurationEditorMessage = function(message, isError) {
+    this.configurationFeedback.textContent = message || "";
+    this.configurationFeedback.classList.toggle("error", Boolean(message && isError));
+    this.configurationFeedback.classList.toggle("success", Boolean(message && !isError));
+};
+
 MetadataInspectorView.prototype.renderValidation = function(messages) {
     while(this.validationList.firstChild) this.validationList.removeChild(this.validationList.firstChild);
 
@@ -179,8 +354,8 @@ MetadataInspectorView.prototype.renderValidation = function(messages) {
 MetadataInspectorView.prototype.renderUnavailable = function(configurationResult, messages) {
     this.status.textContent = "No supported dialogue or choice line selected.";
     this.status.classList.add("unavailable");
-    this.lineNumber.textContent = "—";
-    this.contextType.textContent = "—";
+    this.lineNumber.textContent = "\u2014";
+    this.contextType.textContent = "\u2014";
     Object.values(this.fields).forEach(field => field.value = "");
     this.setFieldsEnabled(false, null);
     this.renderCatalogs(configurationResult && configurationResult.catalogs);

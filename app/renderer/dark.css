@@ -183,6 +183,9 @@
 }
 
 .window.dark .metadata-field-label,
+.window.dark .metadata-configuration-label,
+.window.dark .metadata-configuration-contexts legend,
+.window.dark .metadata-custom-field-form h3,
 .window.dark .metadata-selection-status {
     color: #CCC;
 }
@@ -192,17 +195,40 @@
     background: #293A4B;
 }
 
-.window.dark .metadata-field {
+.window.dark .metadata-field,
+.window.dark .metadata-configuration-field,
+.window.dark .metadata-configuration-label-input,
+.window.dark .metadata-configuration-values,
+.window.dark .metadata-custom-field-key,
+.window.dark .metadata-custom-field-label {
     background: #282828;
     border-color: #555;
     color: #EEE;
 }
 
-.window.dark .metadata-field:disabled {
+.window.dark .metadata-field:disabled,
+.window.dark .metadata-configuration-field:disabled,
+.window.dark .metadata-configuration-label-input:disabled,
+.window.dark .metadata-configuration-values:disabled,
+.window.dark .metadata-custom-field-key:disabled,
+.window.dark .metadata-custom-field-label:disabled {
     background: #222;
     color: #777;
 }
 
-.window.dark .metadata-validation {
+.window.dark .metadata-validation,
+.window.dark .metadata-tabs,
+.window.dark .metadata-custom-field-form {
     border-color: #323232;
+}
+
+.window.dark .metadata-tab {
+    background: #202020;
+    color: #888;
+    border-color: #323232;
+}
+
+.window.dark .metadata-tab.active {
+    background: #181818;
+    color: #EEE;
 }

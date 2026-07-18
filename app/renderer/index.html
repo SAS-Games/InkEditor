@@ -137,6 +137,42 @@
 
             </div>
           </div>
+
+          <aside id="metadata-inspector" aria-label="Dialogue metadata inspector">
+            <div class="metadata-inspector-header">
+              <button type="button" class="metadata-collapse" aria-expanded="true" title="Collapse metadata inspector">›</button>
+              <h2>Dialogue metadata</h2>
+            </div>
+
+            <div class="metadata-inspector-collapsed-label">Metadata</div>
+
+            <div class="metadata-inspector-body">
+              <p class="metadata-selection-status">No supported dialogue line selected.</p>
+
+              <dl class="metadata-context-summary">
+                <div>
+                  <dt>Selected line</dt>
+                  <dd class="metadata-line-number">—</dd>
+                </div>
+                <div>
+                  <dt>Context</dt>
+                  <dd class="metadata-context-type">—</dd>
+                </div>
+              </dl>
+
+              <p class="metadata-configuration-status"></p>
+              <div class="metadata-fields"></div>
+
+              <section class="metadata-validation" aria-live="polite">
+                <h3>Validation</h3>
+                <ul class="metadata-validation-list"></ul>
+              </section>
+
+              <button type="button" class="btn btn-negative metadata-remove-all">
+                Remove all managed metadata
+              </button>
+            </div>
+          </aside>
         </div>
 
       </div><!-- photon window-content -->

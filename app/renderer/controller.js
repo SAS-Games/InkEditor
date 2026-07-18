@@ -26,6 +26,9 @@ const InkProject = require("./inkProject.js").InkProject;
 const NavHistory = require("./navHistory.js").NavHistory;
 const GotoAnything = require("./goto.js").GotoAnything;
 const i18n = require("./i18n.js");
+const MetadataInspectorController = require("./metadataInspectorController.js").MetadataInspectorController;
+
+MetadataInspectorController.initialize(EditorView);
 
 InkProject.setEvents({
     "newProject": (project) => {
@@ -36,12 +39,14 @@ InkProject.setEvents({
         NavView.setMainInkFilename(filename);
         NavHistory.reset();
         NavHistory.addStep();
+        MetadataInspectorController.setProject(project);
     },
     "didSave": () => {
         var activeInk = InkProject.currentProject.activeInkFile;
         ToolbarView.setTitle(activeInk.filename());
         NavView.setMainInkFilename(InkProject.currentProject.mainInk.filename());
         NavView.highlightRelativePath(activeInk.relativePath());
+        MetadataInspectorController.reloadConfiguration();
     },
     "didSwitchToInkFile": (inkFile) => {
         var filename = inkFile.filename();
@@ -52,6 +57,7 @@ InkProject.setEvents({
         setImmediate(() => EditorView.setErrors(fileIssues));
         NavView.updateCurrentKnot(inkFile, EditorView.getCurrentCursorPos());
         NavHistory.addStep();
+        MetadataInspectorController.setActiveInkFile(inkFile);
     }
 });
 
@@ -228,6 +234,7 @@ EditorView.setEvents({
     "change": () => {
         LiveCompiler.setEdited();
         NavView.setKnots(InkProject.currentProject.activeInkFile);
+        MetadataInspectorController.documentChanged();
     },
     "jumpToSymbol": (symbolName, contextPos) => {
         var foundSymbol = InkProject.currentProject.findSymbol(symbolName, contextPos);
@@ -243,10 +250,11 @@ EditorView.setEvents({
     },
     "navigate": () => NavHistory.addStep(),
     "changedLine": (pos) =>{
+        MetadataInspectorController.cursorChanged(pos);
         if (InkProject.currentProject && InkProject.currentProject.activeInkFile){
             NavView.updateCurrentKnot(InkProject.currentProject.activeInkFile, pos);
+        }
     }
-}
 });
 
 PlayerView.setEvents({

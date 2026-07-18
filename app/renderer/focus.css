@@ -165,3 +165,35 @@
 .window.focus .sidebar .nav-wrapper::-webkit-scrollbar-thumb {
     background: #323232;
 }
+
+.window.focus #metadata-inspector,
+.window.focus .metadata-inspector-header {
+    background: #222;
+    color: #AAA;
+    border-color: #323232;
+}
+
+.window.focus .metadata-context-summary {
+    background: #1C1C1C;
+    border-color: #444;
+}
+
+.window.focus .metadata-field-label,
+.window.focus .metadata-selection-status {
+    color: #AAA;
+}
+
+.window.focus .metadata-field {
+    background: #282828;
+    border-color: #555;
+    color: #CCC;
+}
+
+.window.focus .metadata-field:disabled {
+    background: #202020;
+    color: #666;
+}
+
+.window.focus .metadata-validation {
+    border-color: #323232;
+}

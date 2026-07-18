@@ -183,6 +183,17 @@ exports.EditorView = {
     getCurrentCursorPos: ()=>{
         return editor.getCursorPosition();
     },
+    applyDocumentEdit: (edit) => {
+        if( !edit ) return;
+
+        const undoManager = editor.session.getUndoManager();
+        if( undoManager && undoManager.startNewGroup ) undoManager.startNewGroup();
+
+        editor.session.replace(
+            new Range(edit.start.row, edit.start.column, edit.end.row, edit.end.column),
+            edit.text
+        );
+    },
     setAutoCompleteDisabled: (autoCompleteDisabled) => {
         editor.setOptions({
             enableBasicAutocompletion: !autoCompleteDisabled,

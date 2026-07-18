@@ -168,3 +168,35 @@
 .window.contrast .sidebar .nav-wrapper::-webkit-scrollbar-thumb {
     background: #323232;
 }
+
+.window.contrast #metadata-inspector,
+.window.contrast .metadata-inspector-header {
+    background: #282828;
+    color: #FFF;
+    border-color: #555;
+}
+
+.window.contrast .metadata-context-summary {
+    background: #222;
+    border-color: #777;
+}
+
+.window.contrast .metadata-field-label,
+.window.contrast .metadata-selection-status {
+    color: #FFF;
+}
+
+.window.contrast .metadata-field {
+    background: #111;
+    border-color: #AAA;
+    color: #FFF;
+}
+
+.window.contrast .metadata-field:disabled {
+    background: #222;
+    color: #AAA;
+}
+
+.window.contrast .metadata-validation {
+    border-color: #555;
+}

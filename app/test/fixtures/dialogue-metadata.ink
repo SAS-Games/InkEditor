@@ -9,8 +9,8 @@
 # quest:forest_gate
 You cannot enter the forest tonight.
 
-* [Ask why] -> ask_guard
-+ [Leave] -> END
+* [Ask why # id:choice.ask_guard] -> ask_guard
++ [Leave # id:choice.leave] -> END
 
 == ask_guard ==
 // This comment is not dialogue.
@@ -18,6 +18,6 @@ You cannot enter the forest tonight.
 This block comment is not dialogue either.
 */
 { gate_is_closed:
-    This conditional content is outside the Version 1 context.
+    This conditional content remains outside the metadata context.
 }
 -> END

@@ -1,31 +1,64 @@
-# Dialogue metadata inspector
+# Ink metadata inspector
 
-The dialogue metadata inspector is a collapsible pane on the right side of Inky. It edits ordinary Ink tags attached to a selected content line. The `.ink` document remains the only source of truth, continues to use official Ink syntax, and follows Inky's normal compile, preview, undo, save, include, and export workflows.
+The metadata inspector is a collapsible pane on the right side of Inky. It edits ordinary Ink tags attached to regular dialogue/content lines and visible choices. The `.ink` document remains the source of truth and continues to use the official compiler, preview, undo, save, include, and export workflows.
 
-## Supported tags
+## Built-in fields
 
-Version 1 manages these canonical, case-insensitive keys:
+The inspector provides these canonical, case-insensitive fields without requiring configuration:
 
 | Inspector field | Ink tag |
 | --- | --- |
-| Line ID | `# id:guard_warning_01` |
+| ID | `# id:guard_warning_01` |
 | Localization Key | `# locale:dialogue.guard.warning_01` |
 | Speaker | `# speaker:guard` |
 | Portrait | `# portrait:angry` |
 | Animation | `# animation:TalkAngry` |
 | Audio | `# audio:guard_warning_01` |
 
-Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding tag nearest the selected dialogue line. If duplicate managed tags exist, the inspector warns and edits only the tag nearest the dialogue line. The explicit **Remove all managed metadata** action removes every supported tag in the block.
+Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding effective tag. If duplicate managed tags exist, the inspector warns and edits only the final/nearest occurrence. **Remove all managed metadata** removes all fields managed in the current context.
 
-Unsupported tags are left in place and retain their original text and ordering.
+Unknown tags remain in place, retain their text and order, and are not affected by **Remove all managed metadata**.
 
-## Selecting a context
+## Dialogue metadata
 
-When the cursor is on a regular dialogue/content line, the inspector scans the contiguous block of tag lines immediately above it. Scanning stops at a blank or non-tag line. When the cursor is on a supported managed tag, the inspector associates the entire contiguous tag block with the first regular content line directly below it.
+Dialogue metadata uses a contiguous block of tag-only lines immediately above the content:
 
-Version 1 deliberately fails closed on choices, knots, stitches, gathers, diverts, declarations, comments, and conditional blocks. Those locations show **No supported dialogue line selected.** Future context resolvers can add those constructs without changing the tag parser or document editor.
+```ink
+# id:guard.warning
+# speaker:guard
+# portrait:angry
+# quest:forest_gate
+You cannot enter the forest tonight.
+```
 
-## Optional project configuration
+Place the cursor on the content or on any managed tag in its block. Scanning stops at a blank or non-tag line. Here, `quest` is preserved as an unknown tag unless the project configuration declares it as a custom field.
+
+## Choice metadata
+
+Choice metadata uses Ink's native inline choice tags. Tags must be part of the choice's display-text segment so they are generated before the player selects the choice:
+
+```ink
+* [Ask about the gate # id:choice.ask_gate # locale:choice.ask_gate] -> ask_gate
++ [Ask again # audio:ui.select # analytics_event:gate.ask_again] -> ask_gate
+```
+
+Place the cursor anywhere on the `*` or `+` choice line. For bracketed choices, the tags must be inside the choice-only brackets so Ink exposes them before selection through `Choice.tags`; the inspector inserts new fields immediately before `]`. For unbracketed choices, it inserts them at the end of the visible choice text before `->`.
+
+The resolver supports ordinary, sticky, named, and inline-conditional choices. It deliberately fails closed for invisible fallback choices, blank choices, choice tags placed after a divert, and choices inside multiline conditional blocks.
+
+## Portrait semantics
+
+`portrait` is a stable lookup value, not an image path and not image data:
+
+```ink
+# speaker:kairos
+# portrait:angry
+Kairos: You should not have come here.
+```
+
+The game decides how `speaker:kairos` plus `portrait:angry` maps to a Sprite, Addressable, texture, or other UI asset. An absent portrait tag can mean "use the default" or "keep the current portrait," depending on the runtime contract. Inky only edits the tag text.
+
+## Project-defined custom fields
 
 Place a JSON file beside the main Ink story and give it the main story's base name plus `.metadata.json`:
 
@@ -34,23 +67,53 @@ story.ink
 story.metadata.json
 ```
 
-Example:
+Schema Version 2 can add fields without changing Inky's JavaScript:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "tags": {
-    "speaker": { "values": ["player", "guard", "merchant"] },
-    "portrait": { "values": ["neutral", "happy", "angry"] },
-    "animation": { "values": ["Idle", "Talk", "TalkAngry"] },
-    "audio": { "values": ["guard_warning_01"] }
+    "speaker": {
+      "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
+    },
+    "mood": {
+      "label": "Emotional State",
+      "values": ["calm", "curious", "suspicious"],
+      "contexts": ["dialogue", "choice"]
+    },
+    "analytics_event": {
+      "label": "Analytics Event",
+      "contexts": ["choice"]
+    }
   }
 }
 ```
 
-Configured values appear as suggestions in editable fields. Writers may still enter free text. Missing configuration, malformed JSON, unsupported schema versions, and catalog mismatches produce non-blocking warnings and never prevent Ink from being saved. Configuration is parsed strictly as JSON and is never evaluated as JavaScript.
+Each entry supports:
 
-See `examples/dialogue-metadata/` for a complete Ink story and matching configuration.
+- `label`: optional inspector label; a readable label is generated from the key when omitted.
+- `values`: optional array of editable suggestions. Values are suggestions, not an enforced enum.
+- `contexts`: optional array containing `dialogue`, `choice`, or both. Both contexts are used when omitted.
+
+Custom keys must match `^[A-Za-z][A-Za-z0-9_.-]*$`. Keys are written in lowercase. The built-in field entries may also supply catalogs, labels, or narrower contexts. Schema Version 1 configurations remain compatible for built-in catalogs, but custom fields require Version 2.
+
+The configuration is parsed strictly as JSON and is never evaluated as JavaScript. Missing, malformed, or invalid configuration produces non-blocking warnings and leaves the built-in free-text fields available.
+
+See `examples/dialogue-metadata/` for a complete story containing dialogue metadata, choice metadata, a configured custom field, and an unknown preserved tag.
+
+## Runtime access
+
+After continuing dialogue, read the generated line tags from the story's current tags collection. Before selecting a choice, read each generated choice's tags:
+
+```csharp
+foreach (Choice choice in story.currentChoices)
+{
+    IEnumerable<string> tags = choice.tags;
+}
+```
+
+Ink supplies tag strings; the game remains responsible for splitting `key:value`, validating values, and performing actions.
 
 ## Validation
 
@@ -58,8 +121,9 @@ The inspector warns about:
 
 - empty managed tag values;
 - duplicate managed tags;
-- line IDs and localization keys that do not match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`;
+- IDs and localization keys that do not match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`;
 - configured catalog mismatches;
+- invalid custom keys, labels, catalogs, or contexts;
 - missing, malformed, or unsupported metadata configuration.
 
 Warnings do not block editing, compilation, or saving.
@@ -79,10 +143,9 @@ npm run build-package -- win64
 
 The inherited Spectron suite is retained separately as `npm run test:e2e`; it requires a compatible Spectron installation and a prebuilt platform package, and is not part of the default unit test command.
 
-## Version 1 limitations
+## Current limitations
 
-- Only regular dialogue/content lines are resolved.
-- The configuration file is loaded when a project opens and after the main story is saved; it is not a metadata assignment store.
-- Catalogs provide suggestions rather than enforced enums.
-- Inline tags at the end of content and multiple tags on one standalone line are not managed.
-- The current LittleAdventure Unity runtime uses a compound `speaker:id::..., image::..., anim::...` value and commonly writes `local`. It accepts canonical `locale` and `audio`, but it does not yet consume separate `portrait`, `animation`, or line `id` tags. Unity integration is outside Version 1 and requires a later runtime adapter or processor update.
+- Regular dialogue uses tag-only lines above the content; inline tags at the end of regular dialogue are not managed.
+- Choice metadata is limited to a single choice line and does not resolve invisible fallback or multiline conditional choices.
+- The configuration file is loaded when a project opens and after the main story is saved; it is not watched continuously and is not a metadata assignment store.
+- The current LittleAdventure Unity runtime uses a compound `speaker:id::..., image::..., anim::...` value and commonly writes `local`. It accepts canonical `locale` and `audio`, but it does not yet consume separate `portrait`, `animation`, line `id`, or project-defined custom tags. Unity integration requires a separate runtime adapter or processor update.

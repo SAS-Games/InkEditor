@@ -1,17 +1,29 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "tags": {
     "speaker": {
-      "values": ["player", "guard", "merchant"]
+      "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
     },
     "portrait": {
-      "values": ["neutral", "happy", "angry", "concerned"]
+      "values": ["neutral", "happy", "angry", "concerned"],
+      "contexts": ["dialogue"]
     },
     "animation": {
-      "values": ["Idle", "Talk", "TalkHappy", "TalkAngry"]
+      "values": ["Idle", "Talk", "TalkHappy", "TalkAngry"],
+      "contexts": ["dialogue"]
     },
     "audio": {
       "values": ["guard_warning_01", "guard_explanation_01", "merchant_greeting_01"]
+    },
+    "mood": {
+      "label": "Emotional State",
+      "values": ["calm", "curious", "suspicious"],
+      "contexts": ["dialogue", "choice"]
+    },
+    "analytics_event": {
+      "label": "Analytics Event",
+      "contexts": ["choice"]
     }
   }
 }

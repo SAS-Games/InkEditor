@@ -17,6 +17,10 @@ const {
 } = require("../renderer/metadataConfigurationLoader.js");
 const { validateMetadata } = require("../renderer/metadataValidator.js");
 const { MetadataInspectorView } = require("../renderer/metadataInspectorView.js");
+const { METADATA_DEFINITIONS } = require("../renderer/metadataDefinitions.js");
+const {
+    resolveContextWithDiscoveredDefinitions
+} = require("../renderer/metadataInspectorController.js");
 
 function editMetadata(text, row, key, value, definitions) {
     const context = resolveMetadataContext(text, row, definitions);
@@ -79,8 +83,7 @@ describe("dialogue metadata parsing and context resolution", function() {
             { text: "// A comment", row: 0 },
             { text: "/*\nComment content\n*/", row: 1 },
             { text: "{ condition:\n    Conditional content\n}", row: 1 },
-            { text: "# speaker:guard\n\nHello.", row: 0 },
-            { text: "# quest:test\nHello.", row: 0 }
+            { text: "# speaker:guard\n\nHello.", row: 0 }
         ];
 
         cases.forEach(testCase => {
@@ -101,6 +104,78 @@ describe("dialogue metadata parsing and context resolution", function() {
         assert.equal(resolveMetadataContext(text, choiceRow).metadata.values.id, "choice.ask_guard");
         assert.equal(resolveMetadataContext(text, commentRow), null);
         assert.equal(resolveMetadataContext(text, conditionalRow), null);
+    });
+});
+
+describe("automatic custom metadata discovery", function() {
+    function resolveDiscovered(text, row, definitions) {
+        return resolveContextWithDiscoveredDefinitions(
+            text,
+            row,
+            definitions || METADATA_DEFINITIONS
+        );
+    }
+
+    it("discovers a valid undeclared dialogue tag from the content or tag row", function() {
+        const text = "# quest:forest_gate\nHello.";
+        const fromDialogue = resolveDiscovered(text, 1);
+        const fromTag = resolveDiscovered(text, 0);
+        const questDefinition = fromDialogue.definitions.find(definition => definition.key === "quest");
+
+        assert.equal(fromDialogue.context.metadata.values.quest, "forest_gate");
+        assert.equal(fromTag.context.metadata.values.quest, "forest_gate");
+        assert.equal(questDefinition.label, "Quest");
+        assert.equal(questDefinition.discovered, true);
+        assert.equal(fromDialogue.context.metadata.entries[0].isDiscovered, true);
+    });
+
+    it("edits and clears a discovered dialogue tag like any other field", function() {
+        const text = "# quest:forest_gate\nHello.";
+        const context = resolveDiscovered(text, 1).context;
+        const updated = applyEditToText(text, setMetadataValue(context, "quest", "castle_gate"));
+        const cleared = applyEditToText(text, setMetadataValue(context, "quest", ""));
+
+        assert.equal(updated, "# quest:castle_gate\nHello.");
+        assert.equal(cleared, "Hello.");
+    });
+
+    it("discovers and edits custom choice tags inside choice brackets", function() {
+        const text = "* [Enter # quest:forest_gate # id:choice.enter] -> enter";
+        const context = resolveDiscovered(text, 0).context;
+        const updated = applyEditToText(text, setMetadataValue(context, "quest", "castle_gate"));
+
+        assert.equal(context.metadata.values.quest, "forest_gate");
+        assert.equal(
+            updated,
+            "* [Enter # quest:castle_gate # id:choice.enter] -> enter"
+        );
+    });
+
+    it("preserves discovered tags during bulk removal while removing configured fields", function() {
+        const dialogue = "# quest:forest_gate\n# speaker:guard\nHello.";
+        const dialogueContext = resolveDiscovered(dialogue, 2).context;
+        const updatedDialogue = applyEditToText(dialogue, removeAllManagedMetadata(dialogueContext));
+
+        const choice = "* [Enter # quest:forest_gate # id:choice.enter] -> enter";
+        const choiceContext = resolveDiscovered(choice, 0).context;
+        const updatedChoice = applyEditToText(choice, removeAllManagedMetadata(choiceContext));
+
+        assert.equal(updatedDialogue, "# quest:forest_gate\nHello.");
+        assert.equal(updatedChoice, "* [Enter # quest:forest_gate] -> enter");
+    });
+
+    it("does not override a configured context restriction through discovery", function() {
+        const definitions = METADATA_DEFINITIONS.concat([{
+            key: "analytics",
+            label: "Analytics",
+            catalog: false,
+            contexts: ["choice"]
+        }]);
+        const resolved = resolveDiscovered("# analytics:event\nHello.", 1, definitions);
+
+        assert.equal(resolved.context.metadata.entries[0].isSupported, false);
+        assert.equal(resolved.definitions.filter(definition => definition.key === "analytics").length, 1);
+        assert.equal(resolved.definitions.some(definition => definition.key === "analytics" && definition.discovered), false);
     });
 });
 
@@ -372,6 +447,11 @@ describe("metadata configuration loading", function() {
             schemaVersion: 2,
             tags: {
                 speaker: { values: ["guard"], contexts: ["dialogue"] },
+                listener: {
+                    label: "Listener",
+                    values: ["player", "guard"],
+                    contexts: ["dialogue"]
+                },
                 mood: {
                     label: "Emotional State",
                     values: ["calm", "suspicious"],
@@ -388,6 +468,7 @@ describe("metadata configuration loading", function() {
         const mood = loaded.definitions.find(definition => definition.key === "mood");
         const analytics = loaded.definitions.find(definition => definition.key === "analytics_event");
         const speaker = loaded.definitions.find(definition => definition.key === "speaker");
+        const listener = loaded.definitions.find(definition => definition.key === "listener");
 
         assert.equal(loaded.status, "loaded");
         assert.equal(mood.label, "Emotional State");
@@ -395,6 +476,8 @@ describe("metadata configuration loading", function() {
         assert.deepEqual(loaded.catalogs.mood, ["calm", "suspicious"]);
         assert.deepEqual(analytics.contexts, ["choice"]);
         assert.deepEqual(speaker.contexts, ["dialogue"]);
+        assert.deepEqual(listener.contexts, ["dialogue"]);
+        assert.deepEqual(loaded.catalogs.listener, ["player", "guard"]);
     });
 
     it("uses custom definitions to edit dialogue and choice metadata", function() {
@@ -542,5 +625,20 @@ describe("metadata inspector fields", function() {
         testView.view.fields.mood.dispatchEvent(new testView.dom.window.Event("change"));
 
         assert.deepEqual(changed, { key: "mood", value: "suspicious" });
+    });
+
+    it("labels automatically discovered fields as custom", function() {
+        const testView = createView();
+        testView.view.setDefinitions([{
+            key: "quest",
+            label: "Quest",
+            catalog: false,
+            contexts: ["dialogue"],
+            discovered: true
+        }]);
+
+        const badge = testView.view.fieldWrappers.quest.querySelector(".metadata-field-origin");
+        assert.equal(badge.textContent, "Custom");
+        assert.match(badge.title, /selected Ink tag/);
     });
 });

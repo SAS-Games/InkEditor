@@ -15,9 +15,9 @@ The inspector provides these canonical, case-insensitive fields without requirin
 | Animation | `# animation:TalkAngry` |
 | Audio | `# audio:guard_warning_01` |
 
-Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding effective tag. If duplicate managed tags exist, the inspector warns and edits only the final/nearest occurrence. **Remove all managed metadata** removes all fields managed in the current context.
+Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding effective tag. If duplicate managed tags exist, the inspector warns and edits only the final/nearest occurrence. **Remove all managed metadata** removes built-in and configured fields managed in the current context.
 
-Unknown tags remain in place, retain their text and order, and are not affected by **Remove all managed metadata**.
+Valid undeclared `key:value` tags automatically appear as editable fields with a **Custom** badge when their line is selected. They retain their text and order and are deliberately preserved by **Remove all managed metadata**; clear the individual custom field to remove it. Raw tags that do not use `key:value` syntax are preserved but are not shown as fields.
 
 ## Dialogue metadata
 
@@ -31,7 +31,7 @@ Dialogue metadata uses a contiguous block of tag-only lines immediately above th
 You cannot enter the forest tonight.
 ```
 
-Place the cursor on the content or on any managed tag in its block. Scanning stops at a blank or non-tag line. Here, `quest` is preserved as an unknown tag unless the project configuration declares it as a custom field.
+Place the cursor on the content or on any well-formed `key:value` tag in its block. Scanning stops at a blank or non-tag line. Here, `quest` automatically appears as an editable custom field. Declaring it in the project configuration is optional and adds a stable label, suggestions, and context restrictions.
 
 ## Choice metadata
 
@@ -58,6 +58,34 @@ Kairos: You should not have come here.
 
 The game decides how `speaker:kairos` plus `portrait:angry` maps to a Sprite, Addressable, texture, or other UI asset. An absent portrait tag can mean "use the default" or "keep the current portrait," depending on the runtime contract. Inky only edits the tag text.
 
+## Generic conversation roles
+
+Conversation roles are optional and composable. `speaker` identifies the active voice. A configured `listener` identifies the primary addressee when the game needs to keep both characters visible:
+
+```ink
+# speaker:alice
+# portrait:happy
+# listener:bob
+# listener_portrait:concerned
+Alice: We should leave.
+```
+
+The same fields cover different narrative forms without a separate mode:
+
+```ink
+The wind moved through the empty hall. // narration: no roles required
+
+# speaker:alice
+# portrait:concerned
+Alice: I need to think. // monologue: no listener required
+
+# speaker:bob
+# listener:alice
+Bob: I agree. // dialogue: active speaker plus optional listener
+```
+
+`listener` and `listener_portrait` are ordinary project-defined fields, so projects can rename or replace them with roles such as `audience`, `addressee`, or `interviewer`. Avoid duplicate `speaker` tags; use one active speaker and explicit secondary roles instead.
+
 ## Project-defined custom fields
 
 Place a JSON file beside the main Ink story and give it the main story's base name plus `.metadata.json`:
@@ -75,6 +103,16 @@ Schema Version 2 can add fields without changing Inky's JavaScript:
   "tags": {
     "speaker": {
       "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
+    },
+    "listener": {
+      "label": "Listener",
+      "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
+    },
+    "listener_portrait": {
+      "label": "Listener Portrait",
+      "values": ["neutral", "happy", "concerned"],
       "contexts": ["dialogue"]
     },
     "mood": {
@@ -100,7 +138,7 @@ Custom keys must match `^[A-Za-z][A-Za-z0-9_.-]*$`. Keys are written in lowercas
 
 The configuration is parsed strictly as JSON and is never evaluated as JavaScript. Missing, malformed, or invalid configuration produces non-blocking warnings and leaves the built-in free-text fields available.
 
-See `examples/dialogue-metadata/` for a complete story containing dialogue metadata, choice metadata, a configured custom field, and an unknown preserved tag.
+See `examples/dialogue-metadata/` for a complete story containing dialogue metadata, optional listener roles, choice metadata, configured custom fields, and an automatically discovered tag.
 
 ## Runtime access
 
@@ -148,4 +186,5 @@ The inherited Spectron suite is retained separately as `npm run test:e2e`; it re
 - Regular dialogue uses tag-only lines above the content; inline tags at the end of regular dialogue are not managed.
 - Choice metadata is limited to a single choice line and does not resolve invisible fallback or multiline conditional choices.
 - The configuration file is loaded when a project opens and after the main story is saved; it is not watched continuously and is not a metadata assignment store.
+- An undeclared custom field appears only when that tag already exists in the selected context. Declare it in `.metadata.json` when writers need an empty field available for new assignments.
 - The current LittleAdventure Unity runtime uses a compound `speaker:id::..., image::..., anim::...` value and commonly writes `local`. It accepts canonical `locale` and `audio`, but it does not yet consume separate `portrait`, `animation`, line `id`, or project-defined custom tags. Unity integration requires a separate runtime adapter or processor update.

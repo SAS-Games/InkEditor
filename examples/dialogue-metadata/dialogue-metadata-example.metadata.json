@@ -5,7 +5,17 @@
       "values": ["player", "guard", "merchant"],
       "contexts": ["dialogue"]
     },
+    "listener": {
+      "label": "Listener",
+      "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
+    },
     "portrait": {
+      "values": ["neutral", "happy", "angry", "concerned"],
+      "contexts": ["dialogue"]
+    },
+    "listener_portrait": {
+      "label": "Listener Portrait",
       "values": ["neutral", "happy", "angry", "concerned"],
       "contexts": ["dialogue"]
     },

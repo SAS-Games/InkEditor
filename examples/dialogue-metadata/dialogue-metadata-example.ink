@@ -4,6 +4,8 @@
 # locale:dialogue.guard.warning_01
 # speaker:guard
 # portrait:angry
+# listener:player
+# listener_portrait:neutral
 # animation:TalkAngry
 # audio:guard_warning_01
 # mood:suspicious
@@ -19,6 +21,8 @@ You cannot enter the forest tonight.
 # locale:dialogue.guard.explanation_01
 # speaker:guard
 # portrait:concerned
+# listener:player
+# listener_portrait:neutral
 # animation:Talk
 # audio:guard_explanation_01
 # mood:calm

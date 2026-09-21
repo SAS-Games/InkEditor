@@ -84,7 +84,17 @@ Alice: I need to think. // monologue: no listener required
 Bob: I agree. // dialogue: active speaker plus optional listener
 ```
 
-`listener` and `listener_portrait` are ordinary project-defined fields, so projects can rename or replace them with roles such as `audience`, `addressee`, or `interviewer`. Avoid duplicate `speaker` tags; use one active speaker and explicit secondary roles instead.
+`listener` is the recommended optional second role. For additional or domain-specific participants, use the explicit `participant.<role>` namespace:
+
+```ink
+# participant.interviewer:maya
+# participant.interviewer.name:Detective Maya
+# participant.interviewer.portrait:focused
+# participant.interviewer.animation:Question
+What did you see?
+```
+
+Only the role ID (`participant.interviewer:maya`) is required. The matching name, portrait, and animation tags are optional, so a choice or line does not need to show every field. Explicit namespacing keeps generic roles distinct from ordinary custom tags such as `mood` or `quest`.
 
 ## Project-defined custom fields
 
@@ -93,7 +103,7 @@ Use the inspector's **Configuration** tab to manage project fields without writi
 1. Save the main `.ink` story so Inky knows where the project sidecar belongs.
 2. Open **Configuration** in the right inspector.
 3. Select a built-in field to set its label, Dialogue/Choice availability, and suggested values, then choose **Save field**.
-4. Under **Add custom field**, enter a tag key such as `listener` or `listener_portrait`. New custom fields start in both Dialogue and Choice contexts; select the new field afterward if you want to narrow it.
+4. Under **Add custom field**, enter a tag key such as `listener`, `listener_portrait`, or `participant.interviewer`. Add each optional participant detail (for example `participant.interviewer.portrait`) as its own field. New custom fields start in both Dialogue and Choice contexts; select the new field afterward if you want to narrow it.
 5. Return to **Metadata** to assign the configured fields on dialogue and choice lines.
 
 Suggested values are one per line. They provide autocomplete choices while remaining editable, so a writer can still enter a value that is not in the list. **Reset override** restores a built-in field's defaults. **Remove field** removes a custom field from project configuration; it does not delete tags already written in `.ink` files.
@@ -123,6 +133,16 @@ The UI writes Schema Version 2. The resulting file can still be reviewed, versio
     "listener_portrait": {
       "label": "Listener Portrait",
       "values": ["neutral", "happy", "concerned"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer": {
+      "label": "Interviewer",
+      "values": ["maya", "guard"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer.portrait": {
+      "label": "Interviewer Portrait",
+      "values": ["neutral", "focused"],
       "contexts": ["dialogue"]
     },
     "mood": {
@@ -161,7 +181,51 @@ foreach (Choice choice in story.currentChoices)
 }
 ```
 
-Ink supplies tag strings; the game remains responsible for splitting `key:value`, validating values, and performing actions.
+Ink supplies tag strings. In LittleAdventure, `DialogueMetadataParser` turns those strings into a validated context for both lines and choices by using the active `DialogueMetadataProfile`:
+
+```csharp
+DialogueMetadataSchema schema = metadataProfile.GetSchema();
+DialogueLineContext line = DialogueMetadataParser.ParseLine(text, story.currentTags, schema);
+
+if (line.TryGetParticipant("listener", out DialogueParticipant listener))
+{
+    string characterId = listener.CharacterId;
+    string portraitKey = listener.PortraitKey;
+}
+
+if (line.TryGetTagValue("quest", out string questId))
+{
+    // React to project-specific metadata.
+}
+```
+
+The default profile maps the documented canonical fields to the runtime's standard `speaker` and `listener` roles. A project can instead map tags such as `actor`, `face`, and `loc_key` onto the same runtime semantics, or configure a different generic participant prefix and suffixes. Other valid keys remain arbitrary custom metadata.
+
+### Vanilla Ink and configurable Unity tag names
+
+The customized Inky editor is optional at runtime. A writer can use official Ink/Inky and ordinary tags:
+
+```ink
+Hello there.
+# actor:mira
+# actor_display:Mira
+# face:happy
+# loc_key:dialogue.mira.hello
+# mood:friendly
+```
+
+Create a **Dialogue > Metadata Profile** asset in Unity and map:
+
+| Runtime semantic | Project tag |
+| --- | --- |
+| Localization | `loc_key` |
+| Participant `speaker` ID | `actor` |
+| Participant `speaker` name | `actor_display` |
+| Participant `speaker` portrait | `face` |
+
+Assign the profile as the handler's default, or assign a per-story override on `DialogueTrigger`. Presenters consume stable runtime properties and do not know which Ink tag supplied them. Unmapped tags such as `mood` remain available through `TryGetTagValue`.
+
+The `.metadata.json` sidecar configures this Inky inspector's fields, labels, contexts, and suggested values. It does not rename Ink tags or control Unity runtime semantics. If both tools are used, give the Inky field and the Unity profile binding the same project-owned tag key.
 
 ## Validation
 
@@ -197,4 +261,5 @@ The inherited Spectron suite is retained separately as `npm run test:e2e`; it re
 - Choice metadata is limited to a single choice line and does not resolve invisible fallback or multiline conditional choices.
 - The configuration file is loaded when a project opens, after the main story is saved, and after every Configuration-tab edit. External edits are not watched continuously; save or reopen the project to reload them. The sidecar is field configuration, not a metadata assignment store.
 - An undeclared custom field appears only when that tag already exists in the selected context. Declare it in `.metadata.json` when writers need an empty field available for new assignments.
-- The current LittleAdventure Unity runtime uses a compound `speaker:id::..., image::..., anim::...` value and commonly writes `local`. It accepts canonical `locale` and `audio`, but it does not yet consume separate `portrait`, `animation`, line `id`, or project-defined custom tags. Unity integration requires a separate runtime adapter or processor update.
+- Unity profile changes do not rewrite existing `.ink` content. Migrate the Ink tag text when changing a project-owned key, or use separate old/new profiles while different stories are being migrated.
+- The default LittleAdventure profile intentionally does not support the legacy compound `speaker:id::..., image::..., anim::...` format.

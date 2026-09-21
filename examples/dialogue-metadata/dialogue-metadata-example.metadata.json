@@ -5,6 +5,11 @@
       "values": ["player", "guard", "merchant"],
       "contexts": ["dialogue"]
     },
+    "speaker_name": {
+      "label": "Speaker Name",
+      "values": ["Player", "Gate Guard", "Merchant"],
+      "contexts": ["dialogue"]
+    },
     "listener": {
       "label": "Listener",
       "values": ["player", "guard", "merchant"],
@@ -17,6 +22,36 @@
     "listener_portrait": {
       "label": "Listener Portrait",
       "values": ["neutral", "happy", "angry", "concerned"],
+      "contexts": ["dialogue"]
+    },
+    "listener_name": {
+      "label": "Listener Name",
+      "values": ["Player", "Gate Guard", "Merchant"],
+      "contexts": ["dialogue"]
+    },
+    "listener_animation": {
+      "label": "Listener Animation",
+      "values": ["Idle", "Listen"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer": {
+      "label": "Interviewer",
+      "values": ["player", "guard", "merchant"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer.name": {
+      "label": "Interviewer Name",
+      "values": ["Player", "Gate Guard", "Merchant"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer.portrait": {
+      "label": "Interviewer Portrait",
+      "values": ["neutral", "focused", "concerned"],
+      "contexts": ["dialogue"]
+    },
+    "participant.interviewer.animation": {
+      "label": "Interviewer Animation",
+      "values": ["Idle", "Question"],
       "contexts": ["dialogue"]
     },
     "animation": {

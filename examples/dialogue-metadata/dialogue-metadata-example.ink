@@ -3,9 +3,12 @@
 # id:guard_warning_01
 # locale:dialogue.guard.warning_01
 # speaker:guard
+# speaker_name:Gate Guard
 # portrait:angry
 # listener:player
+# listener_name:Player
 # listener_portrait:neutral
+# listener_animation:Listen
 # animation:TalkAngry
 # audio:guard_warning_01
 # mood:suspicious

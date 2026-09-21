@@ -61,6 +61,11 @@
     "audio": {
       "values": ["guard_warning_01", "guard_explanation_01", "merchant_greeting_01"]
     },
+    "skip": {
+      "label": "Story Skip",
+      "values": ["enable", "disable"],
+      "contexts": ["dialogue"]
+    },
     "mood": {
       "label": "Emotional State",
       "values": ["calm", "curious", "suspicious"],

@@ -40,6 +40,14 @@ function validateMetadata(context, configurationResult) {
             ));
         }
 
+        if( key === "skip" && value && !["enable", "disable"].includes(value.toLowerCase()) ) {
+            messages.push(warning(
+                "invalid-skip",
+                "Story Skip must be 'enable' or 'disable'.",
+                key
+            ));
+        }
+
         const catalog = configuration.catalogs && configuration.catalogs[key];
         if( value && Array.isArray(catalog) && catalog.length > 0 && !catalog.includes(value) ) {
             messages.push(warning(

@@ -14,10 +14,24 @@ The inspector provides these canonical, case-insensitive fields without requirin
 | Portrait | `# portrait:angry` |
 | Animation | `# animation:TalkAngry` |
 | Audio | `# audio:guard_warning_01` |
+| Story Skip | `# skip:enable` |
 
 Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding effective tag. If duplicate managed tags exist, the inspector warns and edits only the final/nearest occurrence. **Remove all managed metadata** removes built-in and configured fields managed in the current context.
 
 Valid undeclared `key:value` tags automatically appear as editable fields with a **Custom** badge when their line is selected. They retain their text and order and are deliberately preserved by **Remove all managed metadata**; clear the individual custom field to remove it. Raw tags that do not use `key:value` syntax are preserved but are not shown as fields.
+
+## Story skip control
+
+Use dialogue metadata to decide when a Unity story-skip button becomes available:
+
+```ink
+# skip:enable
+You have heard enough to leave whenever you want.
+```
+
+`enable` unlocks story skipping after the tagged line has finished presenting. The permission remains active on later lines and choices, so the player can either keep advancing line by line or press Skip. A later `# skip:disable` line revokes the permission after that line finishes. Each new dialogue session starts with skipping disabled.
+
+The Unity `DialogueStorySkipButton` component reads this state from `DialogueHandler`. Pressing it exits the current dialogue immediately; it does not evaluate skipped Ink lines, select choices, or invoke external functions in the skipped content. Put required game-state changes before the unlock point or handle them from the normal dialogue-end event.
 
 ## Dialogue metadata
 
@@ -219,6 +233,7 @@ Create a **Dialogue > Metadata Profile** asset in Unity and map:
 | Runtime semantic | Project tag |
 | --- | --- |
 | Localization | `loc_key` |
+| Story skip permission | `skip` (or the profile's configured skip tag) |
 | Participant `speaker` ID | `actor` |
 | Participant `speaker` name | `actor_display` |
 | Participant `speaker` portrait | `face` |

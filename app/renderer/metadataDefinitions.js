@@ -4,7 +4,8 @@ const METADATA_DEFINITIONS = Object.freeze([
     Object.freeze({ key: "speaker", label: "Speaker", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
     Object.freeze({ key: "portrait", label: "Portrait", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
     Object.freeze({ key: "animation", label: "Animation", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
-    Object.freeze({ key: "audio", label: "Audio", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) })
+    Object.freeze({ key: "audio", label: "Audio", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
+    Object.freeze({ key: "skip", label: "Story Skip", catalog: false, contexts: Object.freeze(["dialogue"]) })
 ]);
 
 const METADATA_KEYS = Object.freeze(METADATA_DEFINITIONS.map(definition => definition.key));

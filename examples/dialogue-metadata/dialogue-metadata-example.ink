@@ -11,6 +11,7 @@
 # listener_animation:Listen
 # animation:TalkAngry
 # audio:guard_warning_01
+# skip:enable
 # mood:suspicious
 # quest:forest_gate
 You cannot enter the forest tonight.

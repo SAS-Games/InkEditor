@@ -51,7 +51,8 @@ describe("dialogue metadata parsing and context resolution", function() {
             speaker: "guard",
             portrait: "angry",
             animation: "TalkAngry",
-            audio: "guard_warning_01"
+            audio: "guard_warning_01",
+            skip: ""
         });
     });
 
@@ -406,6 +407,17 @@ describe("dialogue metadata validation", function() {
         assert(codes.includes("duplicate-portrait"));
         assert(codes.includes("catalog-portrait"));
     });
+
+    it("warns when story skip uses an unsupported directive", function() {
+        const context = resolveMetadataContext("# skip:later\nHello.", 1);
+        const messages = validateMetadata(context, {
+            status: "loaded",
+            catalogs: {},
+            warnings: []
+        });
+
+        assert(messages.some(message => message.code === "invalid-skip"));
+    });
 });
 
 describe("metadata configuration loading", function() {
@@ -443,7 +455,7 @@ describe("metadata configuration loading", function() {
         assert.deepEqual(loaded.catalogs.speaker, ["player", "guard"]);
         assert.deepEqual(loaded.catalogs.animation, ["Idle", "Talk"]);
         assert.equal(loaded.warnings.length, 0);
-        assert.equal(loaded.definitions.length, 6);
+        assert.equal(loaded.definitions.length, 7);
     });
 
     it("loads schemaVersion 2 custom fields with labels, catalogs, and contexts", function() {

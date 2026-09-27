@@ -1,0 +1,20 @@
+{
+  "name": "inky-development",
+  "private": true,
+  "version": "0.15.2",
+  "description": "Development commands for the Inky desktop application",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "postinstall": "node scripts/setup.js",
+    "setup": "node scripts/setup.js",
+    "doctor": "node scripts/setup.js --check",
+    "prestart": "node scripts/setup.js --check",
+    "start": "npm --prefix app start",
+    "pretest": "node scripts/setup.js --check",
+    "test": "npm --prefix app test",
+    "build": "npm --prefix app run build-package --"
+  }
+}

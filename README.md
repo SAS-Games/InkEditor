@@ -100,58 +100,35 @@ Inky includes a copy of **inklecate**, the command line **ink** compiler.
 
 Take a look at the [issues page](https://github.com/inkle/inky/issues) for an issue with a "help wanted" label. We try to provide some basic instructions on how to get started with the development of the feature whenever we add the label.
 
-To build the project:
+### Development setup
 
-* Install [node.js](https://nodejs.org/en/) if you don't already have it
-* Clone the repo
-* On Mac, double-click the `INSTALL_AND_RUN.command` script. On Windows, open Powershell, cd into the app directory, and type `npm install`, then `npm start`.
-* For subsequent runs, if no npm packages have changed, you can run the `RUN.command` script on Mac, or type `npm start` in the shell (on Windows).
+Use Node.js 20 or newer and npm 10 or newer. Node 20 is the project baseline used by CI and is recorded in `.nvmrc` for version managers.
+
+After cloning, open a terminal **in the repository root** (the directory containing this README) and run:
+
+```sh
+npm install
+npm start
+```
+
+The root install command uses the committed lockfile to cleanly install the application packages under `app/`, then generates the embedded documentation required at runtime. Do not run `npm install` from an arbitrary parent directory.
+
+On Windows, `INSTALL_AND_RUN.bat` performs the same first-time install and launch. On macOS, use `INSTALL_AND_RUN.command`. For later launches, run `npm start` or use `RUN.command` on macOS.
+
+Useful root commands:
+
+```sh
+npm run setup   # reinstall exactly from app/package-lock.json
+npm run doctor  # check Node, packages, and generated files
+npm test        # run the unit tests
+npm run build -- win64   # example Windows package build
+```
+
+If `node` or `npm` is not recognized, install [Node.js 20 or newer](https://nodejs.org/) and open a new terminal so that the updated `PATH` is loaded. If a clone reports `Cannot find module`, run `npm run setup` from the repository root; do not copy `node_modules` from another machine.
 
 ### Linux
 
-Tested on a fresh **Ubuntu 16.04 LTS** VM installation (_equivalent processes should work for other distributions_)
-
-* Install build tools
-
-`sudo apt-get install -y dkms build-essential linux-headers-generic linux-headers-$(uname -r)`
-
-* Pre-requisites
-
-`sudo apt install git`
-
-`sudo apt install curl`
-
-* Install node and npm
-
-`curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -`
-
-`sudo apt-get install -y nodejs`
-
-* Install mono as per http://www.mono-project.com/download/stable/#download-lin
-
-`sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF`
-
-`echo "deb http://download.mono-project.com/repo/ubuntu stable-xenial main" | sudo tee /etc/apt/sources.list.d/mono-official-stable.list`
-
-`sudo apt-get update`
-
-`sudo apt-get install mono-complete`
-
-* Clone the inky repo
-
-`git clone https://github.com/inkle/inky.git`
-
-* Test inklecate_win with mono (_should output usage info_)
-
-`mono app/main-process/ink/inklecate_win.exe`
-
-* Install and run inky
-
-`./INSTALL_AND_RUN.command`
-
-* For subsequent runs, if no npm packages have changed, launch inky as below (otherwise re-run previous step):
-
-`./RUN.command`
+Install Node.js 20 or newer, Git, and the standard build tools for your distribution. Then use the root-level commands above. The included Linux `inklecate` executable is launched directly; Mono and the obsolete Node.js 8 repository are not required.
 
 ### Translation
 

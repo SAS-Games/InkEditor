@@ -23,6 +23,10 @@
   ],
   "author": "inkle Ltd",
   "license": "MIT",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "bugs": {
     "url": "https://github.com/inkly/inky/issues"
   },
@@ -46,5 +50,8 @@
   },
   "optionalDependencies": {
     "appdmg": "^0.6.6"
+  },
+  "allowScripts": {
+    "electron": true
   }
 }

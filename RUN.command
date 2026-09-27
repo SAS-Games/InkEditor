@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
-cd "`dirname "$0"`/app"
+cd "`dirname "$0"`"
 npm start

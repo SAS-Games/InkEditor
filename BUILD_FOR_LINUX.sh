@@ -10,8 +10,8 @@ cd "`dirname "$0"`"
 rm -rf Inky-linux-x64/
 rm -rf ReleaseUpload
 
-# Ensure it's correctly/fully installed first
-( cd app && npm install )
+# Ensure the locked dependencies and generated resources are installed first
+npm install
 
 # Linux
 electron-packager app Inky --platform=linux --arch=x64 --icon=resources/Icon.icns --extend-info=resources/info.plist --prune --asar.unpackDir="main-process/ink" --ignore="inklecate_mac"

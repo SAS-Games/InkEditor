@@ -54,8 +54,10 @@ jobs:
         run: ./resources/makeIcns.command
 
       - name: Set up Electron app environment
-        working-directory: ./app
-        run: npm install
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
 
       # insures that the index.html has been built
       - name: Build electron app (Mac x64)

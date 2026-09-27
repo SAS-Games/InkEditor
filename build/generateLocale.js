@@ -2,7 +2,10 @@
     const fs = require('fs');
     const path = require('path');
     const readline = require('readline');
-    const { JSDOM } = require('../app/node_modules/jsdom');
+    const { createRequire } = require('module');
+    const appDirectory = path.resolve(__dirname, '../app');
+    const requireFromApp = createRequire(path.join(appDirectory, 'package.json'));
+    const { JSDOM } = requireFromApp('jsdom');
 
     // JSON utils
     const PrettyJSON = (str) => JSON.stringify(str, null, 2); 

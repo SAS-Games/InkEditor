@@ -5,6 +5,6 @@ REM
 REM     npm install electron-packager -g
 REM
 
-cd app
+cd /d "%~dp0"
 call npm install
-call npm run build-package -- win64
+call npm run build -- win64

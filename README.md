@@ -102,7 +102,7 @@ Take a look at the [issues page](https://github.com/inkle/inky/issues) for an is
 
 ### Development setup
 
-Use Node.js 20 or newer and npm 10 or newer. Node 20 is the project baseline used by CI and is recorded in `.nvmrc` for version managers.
+Use Node.js 22.12 or newer and npm 10 or newer. Node 22.12 is the project baseline used by CI and is recorded in `.nvmrc` for version managers.
 
 After cloning, open a terminal **in the repository root** (the directory containing this README) and run:
 
@@ -124,11 +124,11 @@ npm test        # run the unit tests
 npm run build -- win64   # example Windows package build
 ```
 
-If `node` or `npm` is not recognized, install [Node.js 20 or newer](https://nodejs.org/) and open a new terminal so that the updated `PATH` is loaded. If a clone reports `Cannot find module`, run `npm run setup` from the repository root; do not copy `node_modules` from another machine.
+If `node` or `npm` is not recognized, install [Node.js 22.12 or newer](https://nodejs.org/) and open a new terminal so that the updated `PATH` is loaded. If a clone reports `Cannot find module`, run `npm run setup` from the repository root; do not copy `node_modules` from another machine.
 
 ### Linux
 
-Install Node.js 20 or newer, Git, and the standard build tools for your distribution. Then use the root-level commands above. The included Linux `inklecate` executable is launched directly; Mono and the obsolete Node.js 8 repository are not required.
+Install Node.js 22.12 or newer, Git, and the standard build tools for your distribution. Then use the root-level commands above. The included Linux `inklecate` executable is launched directly; Mono and the obsolete Node.js 8 repository are not required.
 
 ### Translation
 

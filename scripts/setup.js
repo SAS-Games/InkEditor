@@ -3,7 +3,7 @@ const path = require("path");
 const { createRequire } = require("module");
 const { spawnSync } = require("child_process");
 
-const minimumNodeMajor = 20;
+const minimumNodeVersion = [22, 12, 0];
 const repositoryDirectory = path.resolve(__dirname, "..");
 const appDirectory = path.join(repositoryDirectory, "app");
 const appPackagePath = path.join(appDirectory, "package.json");
@@ -22,13 +22,20 @@ function fail(message) {
 }
 
 function checkNodeVersion() {
-  const nodeMajor = Number(process.versions.node.split(".")[0]);
-  if (!Number.isInteger(nodeMajor) || nodeMajor < minimumNodeMajor) {
+  const currentVersion = process.versions.node.split(".").map(Number);
+  const isSupported = minimumNodeVersion.every((minimumPart, index) => {
+    const earlierPartsMatch = minimumNodeVersion
+      .slice(0, index)
+      .every((part, earlierIndex) => currentVersion[earlierIndex] === part);
+    return !earlierPartsMatch || currentVersion[index] >= minimumPart;
+  });
+
+  if (!isSupported) {
     console.error(
-      `Inky development requires Node.js ${minimumNodeMajor} or newer; found ${process.version}.`
+      `Inky development requires Node.js ${minimumNodeVersion.join(".")} or newer; found ${process.version}.`
     );
     console.error(
-      "Install Node.js 20 or newer (or run `nvm use` if you use nvm), then run this command again."
+      "Install a supported Node.js version (or run `nvm use` if you use nvm), then run this command again."
     );
     process.exit(1);
   }
@@ -62,6 +69,18 @@ function checkInstallation() {
 
   if (missingPackages.length > 0) {
     fail(`missing packages: ${missingPackages.join(", ")}.`);
+  }
+
+  try {
+    const electronExecutablePath = appRequire("electron");
+    if (
+      typeof electronExecutablePath !== "string" ||
+      !fs.existsSync(electronExecutablePath)
+    ) {
+      fail("the Electron runtime binary is missing.");
+    }
+  } catch (_error) {
+    fail("the Electron runtime binary is missing.");
   }
 
   if (!fs.existsSync(generatedDocumentationPath)) {

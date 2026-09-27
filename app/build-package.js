@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
-const packager = require('@electron/packager');
-const appdmg = process.platform == "darwin" ? require('appdmg') : null;
+const { execFile } = require('child_process');
 
 const allPlatforms = ["mac", "win32", "win64", "linux"];
 
@@ -34,9 +32,9 @@ let platforms = args.filter(arg => {
 platforms = platforms.length ? platforms : ["mac", "win32", "win64", "linux"];
 
 
-function runCommand(command) {
+function runExecutable(command, args, options = {}) {
     return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
+        execFile(command, args, options, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Error: ${error.message}`);
                 reject(error);
@@ -44,10 +42,10 @@ function runCommand(command) {
             }
             if (stderr) {
                 console.error(`Stderr: ${stderr}`);
-                reject(stderr);
-                return;
             }
-            console.log(`Stdout: ${stdout}`);
+            if (stdout) {
+                console.log(`Stdout: ${stdout}`);
+            }
             resolve(stdout);
         });
     });
@@ -63,29 +61,16 @@ function deleteAtPath(relativePath) {
 }
 
 // Make DMG on Mac
-async function makeDMG() {
-    return new Promise((resolve, reject) => {
-        const ee = appdmg({ 
-            source: path.normalize("../resources/appdmg.json"), 
-            target: path.normalize("../ReleaseUpload/Inky.dmg")
-        });
-        
-        ee.on('progress', function (info) {
-            if( info.type == "step-begin" ) {
-                console.log(`[${info.current}/${info.total}]: ${info.title}`)
-            }
-        });
-        
-        ee.on('finish', function () {
-            console.log("Successfully created Inky.dmg");
-            resolve();
-        });
-        
-        ee.on('error', function (err) {
-            console.error("Error when creating Inky.dmg:", err);
-            reject(err);
-        });
-    });
+async function makeDMG(sourceAppPath, targetDmgPath) {
+    await runExecutable('hdiutil', [
+        'create',
+        '-volname', 'Inky',
+        '-srcfolder', path.resolve(sourceAppPath),
+        '-ov',
+        '-format', 'UDZO',
+        path.resolve(targetDmgPath)
+    ]);
+    console.log("Successfully created Inky.dmg");
 }
 
 
@@ -94,17 +79,26 @@ async function createZip(sourceDir, targetZipPath) {
     targetZipPath = path.resolve(targetZipPath);
 
     if( process.platform == "darwin" || process.platform == "linux" ) {
-        await runCommand(`cd ${sourceDir} && zip -r ${targetZipPath} . -x "*.DS_Store"`);
+        await runExecutable('zip', ['-r', targetZipPath, '.', '-x', '*.DS_Store'], {
+            cwd: sourceDir
+        });
     }
     
     // Assume powershell is available on windows
     else if( process.platform == "win32") {
-        await runCommand(`powershell Compress-Archive ${sourceDir} ${targetZipPath}`);
+        await runExecutable('powershell.exe', [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            'Compress-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force',
+            sourceDir,
+            targetZipPath
+        ]);
     }
 }
 
 
-async function buildPackageForPlatform(targetPlatform) {
+async function buildPackageForPlatform(targetPlatform, packager) {
 
     // Any other cases we need to check?
     if( process.platform != "darwin" && targetPlatform == "mac" ) {
@@ -138,7 +132,7 @@ async function buildPackageForPlatform(targetPlatform) {
     
     // Mac: Create icon from PNG
     if( targetPlatform == "mac" ) {
-        runCommand("../resources/makeIcns.command");
+        await runExecutable(path.resolve("../resources/makeIcns.command"), []);
     }
     
     let opts = {
@@ -202,7 +196,10 @@ async function buildPackageForPlatform(targetPlatform) {
 
         // Create .dmg on mac
         if( targetPlatform == "mac" ) {
-            await makeDMG();
+            await makeDMG(
+                path.join(outputAppDirPath, 'Inky.app'),
+                finalZipOrDmgPath
+            );
         }
 
         // Create .zip on other platforms
@@ -222,8 +219,9 @@ async function buildPackageForPlatform(targetPlatform) {
 
 (async function tryBuildPackages() {
     try {
+        const { packager } = await import('@electron/packager');
         for(let i=0; i<platforms.length; i++) {
-            await buildPackageForPlatform(platforms[i]);
+            await buildPackageForPlatform(platforms[i], packager);
         }
     } catch (error) {
         console.error('Package build failed: ', error);

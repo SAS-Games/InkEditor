@@ -3,7 +3,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { JSDOM } = require("jsdom");
-const inkjs = require("inkjs");
+const inkjs = require("inkjs/full");
 
 const { resolveMetadataContext } = require("../renderer/metadataContextResolver.js");
 const {

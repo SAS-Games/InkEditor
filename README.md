@@ -18,6 +18,7 @@
 - **File watching**: Modern text editors, including Inky, watch for changes to files on disk, so that if you change them it reflects those changes. This is especially helpful if you keep your **ink** in source control.
 - **Ink metadata inspector**: A collapsible inspector can edit dialogue and choice metadata, including project-defined custom fields, while preserving standard Ink tags. See the [metadata inspector guide](docs/dialogue-metadata-inspector.md).
 - **Metadata-driven story skipping**: Use `# skip:enable` on a dialogue line to unlock an optional Unity skip button while preserving normal line-by-line playback.
+- **Metadata-driven character placement**: Choose follow-speaker or fixed-character positioning and assign characters to named visual slots without game-specific code.
 
 ## Project status
 

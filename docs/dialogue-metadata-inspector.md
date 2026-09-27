@@ -15,6 +15,7 @@ The inspector provides these canonical, case-insensitive fields without requirin
 | Animation | `# animation:TalkAngry` |
 | Audio | `# audio:guard_warning_01` |
 | Story Skip | `# skip:enable` |
+| Character Placement | `# placement:fixed-character` |
 
 Whitespace around `:` is accepted while reading. Writes use a single space after `#`, a lowercase canonical key, and no whitespace after `:`. Clearing a field removes the corresponding effective tag. If duplicate managed tags exist, the inspector warns and edits only the final/nearest occurrence. **Remove all managed metadata** removes built-in and configured fields managed in the current context.
 
@@ -31,7 +32,31 @@ You have heard enough to leave whenever you want.
 
 `enable` unlocks story skipping after the tagged line has finished presenting. The permission remains active on later lines and choices, so the player can either keep advancing line by line or press Skip. A later `# skip:disable` line revokes the permission after that line finishes. Each new dialogue session starts with skipping disabled.
 
+The inspector presents Story Skip as a fixed **Not set / enable / disable** dropdown. This prevents new spelling mistakes while keeping an existing unsupported value visible as invalid until it is corrected.
+
 The Unity `DialogueStorySkipButton` component reads this state from `DialogueHandler`. Pressing it exits the current dialogue immediately; it does not evaluate skipped Ink lines, select choices, or invoke external functions in the skipped content. Put required game-state changes before the unlock point or handle them from the normal dialogue-end event.
+
+
+## Character placement
+
+Character identity and screen position are separate. Select **Fixed Characters** when each character should keep the same side while speakers alternate:
+
+```ink
+# placement:fixed-character
+# slot.left:guard
+# slot.right:player
+# speaker:guard
+# listener:player
+You cannot enter tonight.
+
+# speaker:player
+# listener:guard
+Why not?
+```
+
+The Character Placement field is a **Not set / follow-speaker / fixed-character** dropdown. `follow-speaker` keeps the legacy behavior where speaker and listener roles select the views. `fixed-character` remembers assignments for the dialogue session. `slot.left`, `slot.right`, and other project-defined slot fields choose exact positions; use `clear` to empty a slot.
+
+Explicit slot fields are optional. In fixed mode Unity pins newly encountered characters to its configured auto-placement slots, which default to left, right, then center. Add slot fields to the sidecar when writers need them visible before any matching tag exists.
 
 ## Dialogue metadata
 
@@ -212,6 +237,8 @@ if (line.TryGetTagValue("quest", out string questId))
     // React to project-specific metadata.
 }
 ```
+| Character placement mode | `placement` (or the profile's configured placement tag) |
+| Slot assignment prefix | `slot.` (or the profile's configured slot prefix) |
 
 The default profile maps the documented canonical fields to the runtime's standard `speaker` and `listener` roles. A project can instead map tags such as `actor`, `face`, and `loc_key` onto the same runtime semantics, or configure a different generic participant prefix and suffixes. Other valid keys remain arbitrary custom metadata.
 
@@ -257,15 +284,15 @@ Warnings do not block editing, compilation, or saving.
 
 ## Development and packaging
 
-The project requires Node 18 or later because the current development dependencies include jsdom 24. Node 20 with npm 10 is recommended and matches Electron 30's embedded Node generation.
+The project requires Node 22.12 or later and npm 10 or later. The desktop application currently uses Electron 44.
 
-From `app/`:
+From the repository root:
 
 ```sh
 npm install
 npm test
 npm start
-npm run build-package -- win64
+npm run build -- win64
 ```
 
 The inherited Spectron suite is retained separately as `npm run test:e2e`; it requires a compatible Spectron installation and a prebuilt platform package, and is not part of the default unit test command.

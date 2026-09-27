@@ -48,6 +48,22 @@ function validateMetadata(context, configurationResult) {
             ));
         }
 
+        if( key === "placement" && value && !["follow-speaker", "fixed-character"].includes(value.toLowerCase()) ) {
+            messages.push(warning(
+                "invalid-placement",
+                "Character Placement must be 'follow-speaker' or 'fixed-character'.",
+                key
+            ));
+        }
+
+        if( key.startsWith("slot.") && value && value.toLowerCase() !== "clear" && !SAFE_IDENTIFIER_PATTERN.test(value) ) {
+            messages.push(warning(
+                "invalid-slot-character",
+                definition.label + " must contain a character ID or 'clear'.",
+                key
+            ));
+        }
+
         const catalog = configuration.catalogs && configuration.catalogs[key];
         if( value && Array.isArray(catalog) && catalog.length > 0 && !catalog.includes(value) ) {
             messages.push(warning(

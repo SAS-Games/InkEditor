@@ -52,7 +52,8 @@ describe("dialogue metadata parsing and context resolution", function() {
             portrait: "angry",
             animation: "TalkAngry",
             audio: "guard_warning_01",
-            skip: ""
+            skip: "",
+            placement: ""
         });
     });
 
@@ -418,6 +419,24 @@ describe("dialogue metadata validation", function() {
 
         assert(messages.some(message => message.code === "invalid-skip"));
     });
+
+    it("warns when placement or slot metadata is invalid", function() {
+        const definitions = METADATA_DEFINITIONS.concat([{
+            key: "slot.left", label: "Left Slot", catalog: false, contexts: ["dialogue"]
+        }]);
+        const context = resolveMetadataContext(
+            "# placement:teleport\n# slot.left:not valid\nHello.", 2, definitions
+        );
+        const messages = validateMetadata(context, {
+            status: "loaded",
+            catalogs: {},
+            warnings: []
+        });
+        const codes = messages.map(message => message.code);
+
+        assert(codes.includes("invalid-placement"));
+        assert(codes.includes("invalid-slot-character"));
+    });
 });
 
 describe("metadata configuration loading", function() {
@@ -455,7 +474,15 @@ describe("metadata configuration loading", function() {
         assert.deepEqual(loaded.catalogs.speaker, ["player", "guard"]);
         assert.deepEqual(loaded.catalogs.animation, ["Idle", "Talk"]);
         assert.equal(loaded.warnings.length, 0);
-        assert.equal(loaded.definitions.length, 7);
+        assert.equal(loaded.definitions.length, 8);
+        assert.deepEqual(
+            loaded.definitions.find(definition => definition.key === "skip").options,
+            ["enable", "disable"]
+        );
+        assert.deepEqual(
+            loaded.definitions.find(definition => definition.key === "placement").options,
+            ["follow-speaker", "fixed-character"]
+        );
     });
 
     it("loads schemaVersion 2 custom fields with labels, catalogs, and contexts", function() {
@@ -797,6 +824,78 @@ describe("metadata inspector fields", function() {
         testView.view.fields.mood.dispatchEvent(new testView.dom.window.Event("change"));
 
         assert.deepEqual(changed, { key: "mood", value: "suspicious" });
+    });
+
+    it("renders Story Skip as a fixed selector and routes its changes", function() {
+        const testView = createView();
+        let changed = null;
+        testView.view.setEvents({ fieldChanged: (key, value) => changed = { key: key, value: value } });
+        testView.view.renderContext({
+            type: "dialogue",
+            lineNumber: 2,
+            metadata: { values: { skip: "disable" } }
+        }, {
+            status: "loaded",
+            path: "story.metadata.json",
+            catalogs: {}
+        }, []);
+
+        const skipField = testView.view.fields.skip;
+        assert.equal(skipField.tagName, "SELECT");
+        assert.deepEqual(Array.from(skipField.options).map(option => option.value), ["", "enable", "disable"]);
+        assert.equal(skipField.value, "disable");
+
+        skipField.value = "enable";
+        skipField.dispatchEvent(new testView.dom.window.Event("change"));
+        assert.deepEqual(changed, { key: "skip", value: "enable" });
+    });
+
+    it("renders Character Placement as a fixed selector and routes its changes", function() {
+        const testView = createView();
+        let changed = null;
+        testView.view.setEvents({ fieldChanged: (key, value) => changed = { key: key, value: value } });
+        testView.view.renderContext({
+            type: "dialogue",
+            lineNumber: 2,
+            metadata: { values: { placement: "fixed-character" } }
+        }, {
+            status: "loaded",
+            path: "story.metadata.json",
+            catalogs: {}
+        }, []);
+
+        const placementField = testView.view.fields.placement;
+        assert.equal(placementField.tagName, "SELECT");
+        assert.deepEqual(
+            Array.from(placementField.options).map(option => option.value),
+            ["", "follow-speaker", "fixed-character"]
+        );
+        assert.equal(placementField.value, "fixed-character");
+
+        placementField.value = "follow-speaker";
+        assert.deepEqual(
+            Array.from(placementField.options).map(option => option.textContent),
+            ["Not set", "Follow Speaker", "Fixed Characters"]
+        );
+        placementField.dispatchEvent(new testView.dom.window.Event("change"));
+        assert.deepEqual(changed, { key: "placement", value: "follow-speaker" });
+    });
+
+    it("keeps an existing unsupported Story Skip value visible for correction", function() {
+        const testView = createView();
+        testView.view.renderContext({
+            type: "dialogue",
+            lineNumber: 2,
+            metadata: { values: { skip: "later" } }
+        }, {
+            status: "loaded",
+            path: "story.metadata.json",
+            catalogs: {}
+        }, []);
+
+        const skipField = testView.view.fields.skip;
+        assert.equal(skipField.value, "later");
+        assert.equal(skipField.selectedOptions[0].textContent, "later (invalid)");
     });
 
     it("labels automatically discovered fields as custom", function() {

@@ -111,14 +111,28 @@ MetadataInspectorView.prototype.createFields = function(definitions) {
         }
         fieldWrapper.appendChild(labelText);
 
-        const input = this.document.createElement("input");
-        input.type = "text";
+        const hasFixedOptions = Array.isArray(definition.options) && definition.options.length > 0;
+        const input = this.document.createElement(hasFixedOptions ? "select" : "input");
+        if( hasFixedOptions ) {
+            const emptyOption = this.document.createElement("option");
+            emptyOption.value = "";
+            emptyOption.textContent = "Not set";
+            input.appendChild(emptyOption);
+            definition.options.forEach(value => {
+                const option = this.document.createElement("option");
+                option.value = value;
+                option.textContent = (definition.optionLabels && definition.optionLabels[value]) || value;
+                input.appendChild(option);
+            });
+        } else {
+            input.type = "text";
+        }
         input.id = "metadata-field-" + definition.key;
         input.className = "form-control metadata-field";
         input.dataset.metadataKey = definition.key;
         input.autocomplete = "off";
 
-        if( definition.catalog ) {
+        if( definition.catalog && !hasFixedOptions ) {
             const datalist = this.document.createElement("datalist");
             datalist.id = "metadata-catalog-" + definition.key;
             input.setAttribute("list", datalist.id);
@@ -152,6 +166,8 @@ MetadataInspectorView.prototype.setDefinitions = function(definitions) {
         label: definition.label,
         catalog: definition.catalog,
         contexts: Array.isArray(definition.contexts) ? definition.contexts.slice() : null,
+        options: Array.isArray(definition.options) ? definition.options.slice() : null,
+        optionLabels: definition.optionLabels ? Object.assign({}, definition.optionLabels) : null,
         discovered: Boolean(definition.discovered)
     }));
     this.createFields(this.definitions);
@@ -356,11 +372,39 @@ MetadataInspectorView.prototype.renderUnavailable = function(configurationResult
     this.status.classList.add("unavailable");
     this.lineNumber.textContent = "\u2014";
     this.contextType.textContent = "\u2014";
-    Object.values(this.fields).forEach(field => field.value = "");
+    this.definitions.forEach(definition => this.setFieldValue(definition, ""));
     this.setFieldsEnabled(false, null);
     this.renderCatalogs(configurationResult && configurationResult.catalogs);
     this.renderConfiguration(configurationResult);
     this.renderValidation(messages);
+};
+
+MetadataInspectorView.prototype.setFieldValue = function(definition, value) {
+    const field = this.fields[definition.key];
+    const fieldValue = value || "";
+    if( field.tagName !== "SELECT" ) {
+        field.value = fieldValue;
+        return;
+    }
+
+    Array.from(field.options)
+        .filter(option => option.dataset.metadataInvalid === "true")
+        .forEach(option => option.remove());
+
+    const matchingOption = (definition.options || []).find(option => {
+        return option.toLowerCase() === fieldValue.toLowerCase();
+    });
+    if( matchingOption || !fieldValue ) {
+        field.value = matchingOption || "";
+        return;
+    }
+
+    const invalidOption = this.document.createElement("option");
+    invalidOption.value = fieldValue;
+    invalidOption.textContent = fieldValue + " (invalid)";
+    invalidOption.dataset.metadataInvalid = "true";
+    field.appendChild(invalidOption);
+    field.value = fieldValue;
 };
 
 MetadataInspectorView.prototype.renderContext = function(context, configurationResult, messages) {
@@ -370,8 +414,8 @@ MetadataInspectorView.prototype.renderContext = function(context, configurationR
     this.lineNumber.textContent = String(context.lineNumber);
     this.contextType.textContent = contextLabel[0].toUpperCase() + contextLabel.substring(1);
 
-    Object.keys(this.fields).forEach(key => {
-        this.fields[key].value = context.metadata.values[key] || "";
+    this.definitions.forEach(definition => {
+        this.setFieldValue(definition, context.metadata.values[definition.key]);
     });
 
     this.setFieldsEnabled(true, context.type);

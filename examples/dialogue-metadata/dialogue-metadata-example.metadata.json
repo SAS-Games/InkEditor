@@ -1,6 +1,20 @@
 {
   "schemaVersion": 2,
   "tags": {
+    "placement": {
+      "label": "Character Placement",
+      "contexts": ["dialogue"]
+    },
+    "slot.left": {
+      "label": "Left Slot",
+      "values": ["player", "guard", "merchant", "clear"],
+      "contexts": ["dialogue"]
+    },
+    "slot.right": {
+      "label": "Right Slot",
+      "values": ["player", "guard", "merchant", "clear"],
+      "contexts": ["dialogue"]
+    },
     "speaker": {
       "values": ["player", "guard", "merchant"],
       "contexts": ["dialogue"]

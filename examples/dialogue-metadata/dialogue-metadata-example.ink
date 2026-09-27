@@ -2,6 +2,9 @@
 
 # id:guard_warning_01
 # locale:dialogue.guard.warning_01
+# placement:fixed-character
+# slot.left:guard
+# slot.right:player
 # speaker:guard
 # speaker_name:Gate Guard
 # portrait:angry

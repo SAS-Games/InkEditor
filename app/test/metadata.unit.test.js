@@ -8,15 +8,23 @@ const inkjs = require("inkjs/full");
 const { resolveMetadataContext } = require("../renderer/metadataContextResolver.js");
 const {
     setMetadataValue,
+    setLocalizationArgument,
+    removeLocalizationArgument,
     removeAllManagedMetadata,
     applyEditToText
 } = require("../renderer/metadataDocumentEditor.js");
+const {
+    parseLocalizationArgument,
+    serializeLocalizationArgument,
+    validateLocalizationArgument
+} = require("../renderer/metadataLocalizationArguments.js");
 const {
     metadataPathForMainInk,
     loadMetadataConfiguration
 } = require("../renderer/metadataConfigurationLoader.js");
 const {
     canEditMetadataConfiguration,
+    ensureMetadataConfiguration,
     saveMetadataField,
     removeMetadataField
 } = require("../renderer/metadataConfigurationEditor.js");
@@ -52,6 +60,7 @@ describe("dialogue metadata parsing and context resolution", function() {
             portrait: "angry",
             animation: "TalkAngry",
             audio: "guard_warning_01",
+            "loc-arg": "",
             skip: "",
             placement: ""
         });
@@ -384,6 +393,72 @@ describe("choice metadata text updates", function() {
     });
 });
 
+describe("localization argument metadata", function() {
+    it("parses and serializes value and localized argument forms", function() {
+        assert.deepEqual(parseLocalizationArgument("reward,int,{reward}"), {
+            name: "reward", type: "int", value: "{reward}", table: "", entry: ""
+        });
+        assert.deepEqual(parseLocalizationArgument("item,localized,Items,{item_key}"), {
+            name: "item", type: "localized", value: "", table: "Items", entry: "{item_key}"
+        });
+        assert.equal(serializeLocalizationArgument({
+            name: "message", type: "string", value: "Hello, {player_name}"
+        }), "message,string,Hello, {player_name}");
+        assert.equal(validateLocalizationArgument({
+            name: "item", type: "localized", table: "Items", entry: "{item_key}"
+        }), null);
+        assert.match(validateLocalizationArgument({ name: "bad name", type: "int", value: "1" }), /Argument name/);
+    });
+
+    it("inserts, updates, and removes exact repeated dialogue arguments", function() {
+        let text = "# loc-arg:reward,int,{reward}\n# loc-arg:item,localized,Items,{item_key}\nYou receive a reward.";
+        let context = resolveMetadataContext(text, 2);
+
+        text = applyEditToText(text, setLocalizationArgument(context, 0, {
+            name: "reward", type: "int", value: "{bonus_reward}"
+        }));
+        assert.equal(text, "# loc-arg:reward,int,{bonus_reward}\n# loc-arg:item,localized,Items,{item_key}\nYou receive a reward.");
+
+        context = resolveMetadataContext(text, 2);
+        text = applyEditToText(text, removeLocalizationArgument(context, 1));
+        assert.equal(text, "# loc-arg:reward,int,{bonus_reward}\nYou receive a reward.");
+
+        context = resolveMetadataContext(text, 1);
+        text = applyEditToText(text, setLocalizationArgument(context, null, {
+            name: "item", type: "localized", table: "Items", entry: "{item_key}"
+        }));
+        assert.equal(text, "# loc-arg:reward,int,{bonus_reward}\n# loc-arg:item,localized,Items,{item_key}\nYou receive a reward.");
+    });
+
+    it("edits repeated localization arguments inside choices", function() {
+        let text = "* [Take reward # loc-arg:reward,int,{reward}] -> take";
+        let context = resolveMetadataContext(text, 0);
+        text = applyEditToText(text, setLocalizationArgument(context, null, {
+            name: "item", type: "localized", table: "Items", entry: "{item_key}"
+        }));
+        assert.equal(text, "* [Take reward # loc-arg:reward,int,{reward} # loc-arg:item,localized,Items,{item_key}] -> take");
+
+        context = resolveMetadataContext(text, 0);
+        text = applyEditToText(text, removeLocalizationArgument(context, 0));
+        assert.equal(text, "* [Take reward # loc-arg:item,localized,Items,{item_key}] -> take");
+    });
+
+    it("treats repeated loc-arg tags as intentional and validates their rows", function() {
+        const context = resolveMetadataContext([
+            "# loc-arg:reward,int,{reward}",
+            "# loc-arg:Reward,float,{multiplier}",
+            "# loc-arg:item,localized,Items,",
+            "Reward text."
+        ].join("\n"), 3);
+        const messages = validateMetadata(context, { status: "loaded", catalogs: {}, warnings: [] });
+        const codes = messages.map(message => message.code);
+
+        assert(!codes.includes("duplicate-loc-arg"));
+        assert(codes.some(code => code.startsWith("duplicate-loc-arg-name-")));
+        assert(codes.some(code => code.startsWith("invalid-loc-arg-")));
+    });
+});
+
 describe("dialogue metadata validation", function() {
     it("warns about empty values, duplicates, invalid identifiers, and catalog mismatches", function() {
         const text = [
@@ -474,7 +549,7 @@ describe("metadata configuration loading", function() {
         assert.deepEqual(loaded.catalogs.speaker, ["player", "guard"]);
         assert.deepEqual(loaded.catalogs.animation, ["Idle", "Talk"]);
         assert.equal(loaded.warnings.length, 0);
-        assert.equal(loaded.definitions.length, 8);
+        assert.equal(loaded.definitions.length, 9);
         assert.deepEqual(
             loaded.definitions.find(definition => definition.key === "skip").options,
             ["enable", "disable"]
@@ -629,6 +704,26 @@ describe("metadata configuration editing", function() {
         fs.writeFileSync(mainInkPath, "Hello.", "utf8");
         return { mainInkPath: mainInkPath, configPath: metadataPathForMainInk(mainInkPath) };
     }
+
+    it("creates an empty schemaVersion 2 sidecar after the main story is saved", function() {
+        const story = createStoryDirectory();
+
+        assert.equal(ensureMetadataConfiguration(story.mainInkPath), true);
+        assert.deepEqual(JSON.parse(fs.readFileSync(story.configPath, "utf8")), {
+            schemaVersion: 2,
+            tags: {}
+        });
+        assert.equal(loadMetadataConfiguration(story.mainInkPath).status, "loaded");
+    });
+
+    it("does not overwrite an existing metadata sidecar", function() {
+        const story = createStoryDirectory();
+        const existingContent = "{ not valid json";
+        fs.writeFileSync(story.configPath, existingContent, "utf8");
+
+        assert.equal(ensureMetadataConfiguration(story.mainInkPath), false);
+        assert.equal(fs.readFileSync(story.configPath, "utf8"), existingContent);
+    });
 
     it("creates a schemaVersion 2 sidecar from the Configuration tab model", function() {
         const story = createStoryDirectory();
@@ -879,6 +974,62 @@ describe("metadata inspector fields", function() {
         );
         placementField.dispatchEvent(new testView.dom.window.Event("change"));
         assert.deepEqual(changed, { key: "placement", value: "follow-speaker" });
+    });
+
+    it("renders repeatable loc-arg rows with an enforced type selector", function() {
+        const testView = createView();
+        let saved = null;
+        let removed = null;
+        testView.view.setEvents({
+            localizationArgumentSaved: (index, argument) => saved = { index: index, argument: argument },
+            localizationArgumentRemoved: index => removed = index
+        });
+        testView.view.renderContext({
+            type: "dialogue",
+            lineNumber: 3,
+            metadata: {
+                values: { "loc-arg": "item,localized,Items,{item_key}" },
+                occurrences: {
+                    "loc-arg": [{ value: "item,localized,Items,{item_key}" }]
+                }
+            }
+        }, {
+            status: "loaded",
+            path: "story.metadata.json",
+            catalogs: {}
+        }, []);
+
+        const existingRow = testView.dom.window.document.querySelector(".metadata-loc-arg-row");
+        const typeSelect = existingRow.querySelector(".metadata-loc-arg-type");
+        assert.equal(typeSelect.tagName, "SELECT");
+        assert.deepEqual(
+            Array.from(typeSelect.options).map(option => option.value),
+            ["int", "float", "bool", "string", "localized"]
+        );
+        assert.equal(typeSelect.value, "localized");
+        assert.equal(existingRow.querySelector(".metadata-loc-arg-value-control").hidden, true);
+        assert.equal(existingRow.querySelector(".metadata-loc-arg-table").value, "Items");
+
+        existingRow.querySelector(".metadata-loc-arg-entry").value = "{selected_item}";
+        existingRow.querySelector(".metadata-loc-arg-save").click();
+        assert.deepEqual(saved, {
+            index: 0,
+            argument: {
+                name: "item",
+                type: "localized",
+                value: "",
+                table: "Items",
+                entry: "{selected_item}"
+            }
+        });
+
+        existingRow.querySelector(".metadata-loc-arg-remove").click();
+        assert.equal(removed, 0);
+
+        testView.dom.window.document.querySelector(".metadata-loc-arg-add").click();
+        const rows = testView.dom.window.document.querySelectorAll(".metadata-loc-arg-row");
+        assert.equal(rows.length, 2);
+        assert.equal(rows[1].querySelector(".metadata-loc-arg-type").value, "string");
     });
 
     it("keeps an existing unsupported Story Skip value visible for correction", function() {

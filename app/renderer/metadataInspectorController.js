@@ -2,10 +2,13 @@ const { resolveMetadataContext } = require("./metadataContextResolver.js");
 const { discoverMetadataDefinitions } = require("./metadataDefinitions.js");
 const {
     setMetadataValue,
+    setLocalizationArgument,
+    removeLocalizationArgument,
     removeAllManagedMetadata
 } = require("./metadataDocumentEditor.js");
 const { loadMetadataConfiguration } = require("./metadataConfigurationLoader.js");
 const {
+    ensureMetadataConfiguration,
     saveMetadataField,
     removeMetadataField
 } = require("./metadataConfigurationEditor.js");
@@ -108,6 +111,14 @@ function initialize(newEditorView) {
             if( !currentContext ) return;
             applyEdit(setMetadataValue(currentContext, key, value));
         },
+        localizationArgumentSaved: (occurrenceIndex, argument) => {
+            if( !currentContext ) return;
+            applyEdit(setLocalizationArgument(currentContext, occurrenceIndex, argument));
+        },
+        localizationArgumentRemoved: occurrenceIndex => {
+            if( !currentContext ) return;
+            applyEdit(removeLocalizationArgument(currentContext, occurrenceIndex));
+        },
         removeAll: () => {
             if( !currentContext ) return;
             applyEdit(removeAllManagedMetadata(currentContext));
@@ -166,6 +177,20 @@ function setProject(project) {
     reloadConfiguration();
 }
 
+function mainInkSaved() {
+    const mainInkPath = currentProject && currentProject.mainInk
+        ? currentProject.mainInk.absolutePath()
+        : null;
+
+    try {
+        ensureMetadataConfiguration(mainInkPath);
+        reloadConfiguration();
+    } catch(error) {
+        reloadConfiguration();
+        reportConfigurationError(error);
+    }
+}
+
 function setActiveInkFile(inkFile) {
     activeInkFile = inkFile;
     currentCursorRow = editorView.getCurrentCursorPos().row;
@@ -180,6 +205,7 @@ function cursorChanged(position) {
 exports.MetadataInspectorController = {
     initialize: initialize,
     setProject: setProject,
+    mainInkSaved: mainInkSaved,
     setActiveInkFile: setActiveInkFile,
     reloadConfiguration: reloadConfiguration,
     documentChanged: scheduleRefresh,

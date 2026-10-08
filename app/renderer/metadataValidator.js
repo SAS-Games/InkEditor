@@ -1,4 +1,9 @@
 const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+const {
+    LOCALIZATION_ARGUMENT_KEY,
+    parseLocalizationArgument,
+    validateLocalizationArgument
+} = require("./metadataLocalizationArguments.js");
 
 function warning(code, message, field) {
     return { severity: "warning", code: code, message: message, field: field || null };
@@ -20,7 +25,33 @@ function validateMetadata(context, configurationResult) {
         const occurrences = context.metadata.occurrences[key] || [];
         const value = context.metadata.values[key];
 
-        if( occurrences.length > 1 ) {
+        if( key === LOCALIZATION_ARGUMENT_KEY ) {
+            const names = new Set();
+            occurrences.forEach((entry, index) => {
+                const argument = parseLocalizationArgument(entry.value);
+                const validationMessage = validateLocalizationArgument(argument);
+                if( validationMessage ) {
+                    messages.push(warning(
+                        "invalid-loc-arg-" + index,
+                        "Localization argument " + (index + 1) + ": " + validationMessage,
+                        key
+                    ));
+                }
+
+                const canonicalName = argument.name.toLowerCase();
+                if( canonicalName && names.has(canonicalName) ) {
+                    messages.push(warning(
+                        "duplicate-loc-arg-name-" + canonicalName,
+                        "Localization argument name '" + argument.name + "' is used more than once.",
+                        key
+                    ));
+                }
+                if( canonicalName ) names.add(canonicalName);
+            });
+            return;
+        }
+
+        if( occurrences.length > 1 && !definition.repeatable ) {
             messages.push(warning(
                 "duplicate-" + key,
                 "Duplicate # " + key + " tags found; edits update the tag nearest the dialogue line.",

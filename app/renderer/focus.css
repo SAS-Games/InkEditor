@@ -192,6 +192,7 @@
 }
 
 .window.focus .metadata-field,
+.window.focus .metadata-loc-arg-input,
 .window.focus .metadata-configuration-field,
 .window.focus .metadata-configuration-label-input,
 .window.focus .metadata-configuration-values,
@@ -202,7 +203,17 @@
     color: #CCC;
 }
 
+.window.focus .metadata-loc-arg-row {
+    background: #1C1C1C;
+    border-color: #444;
+}
+
+.window.focus .metadata-loc-arg-control {
+    color: #888;
+}
+
 .window.focus .metadata-field:disabled,
+.window.focus .metadata-loc-arg-input:disabled,
 .window.focus .metadata-configuration-field:disabled,
 .window.focus .metadata-configuration-label-input:disabled,
 .window.focus .metadata-configuration-values:disabled,

@@ -1,4 +1,8 @@
 const { canonicalMetadataKey } = require("./metadataDefinitions.js");
+const {
+    LOCALIZATION_ARGUMENT_KEY,
+    serializeLocalizationArgument
+} = require("./metadataLocalizationArguments.js");
 
 function replaceLineEdit(lines, row, newLine) {
     return {
@@ -90,6 +94,50 @@ function setMetadataValue(context, key, value) {
     return insertLineEdit(context.dialogueRow, indent + "# " + canonicalKey + ":" + normalizedValue);
 }
 
+function setLocalizationArgument(context, occurrenceIndex, argument) {
+    if( !context ) return null;
+
+    const serializedValue = serializeLocalizationArgument(argument);
+    const occurrences = context.metadata.occurrences[LOCALIZATION_ARGUMENT_KEY] || [];
+    const occurrence = Number.isInteger(occurrenceIndex) ? occurrences[occurrenceIndex] : null;
+    const canonicalTag = "# " + LOCALIZATION_ARGUMENT_KEY + ":" + serializedValue;
+
+    if( context.type === "choice" ) {
+        const row = context.choiceRow;
+        const line = context.lines[row];
+        if( occurrence ) {
+            if( canonicalTag === line.substring(occurrence.startColumn, occurrence.endColumn) ) return null;
+            return replaceInlineEdit(row, occurrence.startColumn, occurrence.endColumn, canonicalTag);
+        }
+        return replaceInlineEdit(row, context.insertColumn, context.insertColumn, " " + canonicalTag);
+    }
+
+    if( occurrence ) {
+        const canonicalLine = occurrence.indent + canonicalTag;
+        if( canonicalLine === context.lines[occurrence.row] ) return null;
+        return replaceLineEdit(context.lines, occurrence.row, canonicalLine);
+    }
+
+    const dialogueLine = context.lines[context.dialogueRow] || "";
+    const indent = (dialogueLine.match(/^\s*/) || [""])[0];
+    return insertLineEdit(context.dialogueRow, indent + canonicalTag);
+}
+
+function removeLocalizationArgument(context, occurrenceIndex) {
+    if( !context || !Number.isInteger(occurrenceIndex) ) return null;
+
+    const occurrences = context.metadata.occurrences[LOCALIZATION_ARGUMENT_KEY] || [];
+    const occurrence = occurrences[occurrenceIndex];
+    if( !occurrence ) return null;
+
+    if( context.type === "choice" ) {
+        const updatedLine = removeChoiceEntries(context.lines[context.choiceRow], [occurrence]);
+        return replaceLineEdit(context.lines, context.choiceRow, updatedLine);
+    }
+
+    return removeLineEdit(occurrence.row);
+}
+
 function removeAllManagedMetadata(context) {
     if( !context ) return null;
 
@@ -137,5 +185,7 @@ function applyEditToText(text, edit) {
 }
 
 exports.setMetadataValue = setMetadataValue;
+exports.setLocalizationArgument = setLocalizationArgument;
+exports.removeLocalizationArgument = removeLocalizationArgument;
 exports.removeAllManagedMetadata = removeAllManagedMetadata;
 exports.applyEditToText = applyEditToText;

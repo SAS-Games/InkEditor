@@ -195,6 +195,7 @@
 }
 
 .window.contrast .metadata-field,
+.window.contrast .metadata-loc-arg-input,
 .window.contrast .metadata-configuration-field,
 .window.contrast .metadata-configuration-label-input,
 .window.contrast .metadata-configuration-values,
@@ -205,7 +206,17 @@
     color: #FFF;
 }
 
+.window.contrast .metadata-loc-arg-row {
+    background: #222;
+    border-color: #777;
+}
+
+.window.contrast .metadata-loc-arg-control {
+    color: #EEE;
+}
+
 .window.contrast .metadata-field:disabled,
+.window.contrast .metadata-loc-arg-input:disabled,
 .window.contrast .metadata-configuration-field:disabled,
 .window.contrast .metadata-configuration-label-input:disabled,
 .window.contrast .metadata-configuration-values:disabled,

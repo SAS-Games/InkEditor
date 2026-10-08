@@ -28,7 +28,9 @@ function copyBuiltInDefinitions() {
         catalog: definition.catalog,
         contexts: definition.contexts.slice(),
         options: Array.isArray(definition.options) ? definition.options.slice() : null,
-        optionLabels: definition.optionLabels ? Object.assign({}, definition.optionLabels) : null
+        optionLabels: definition.optionLabels ? Object.assign({}, definition.optionLabels) : null,
+        repeatable: Boolean(definition.repeatable),
+        specialized: definition.specialized || null
     }));
 }
 

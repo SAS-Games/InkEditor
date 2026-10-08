@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { metadataPathForMainInk } = require("./metadataConfigurationLoader.js");
 
 const {
     METADATA_CONTEXTS,
@@ -91,6 +92,28 @@ function writeConfiguration(configurationResult, configuration) {
     return configuration;
 }
 
+function ensureMetadataConfiguration(mainInkPath) {
+    const configurationPath = metadataPathForMainInk(mainInkPath);
+    if( !configurationPath ) return false;
+
+    const configuration = {
+        schemaVersion: 2,
+        tags: {}
+    };
+
+    try {
+        fs.writeFileSync(
+            configurationPath,
+            JSON.stringify(configuration, null, 2) + "\n",
+            { encoding: "utf8", flag: "wx" }
+        );
+        return true;
+    } catch(error) {
+        if( error && error.code === "EEXIST" ) return false;
+        throw error;
+    }
+}
+
 function saveMetadataField(configurationResult, field) {
     const canonicalKey = canonicalFieldKey(field && field.key);
     const contexts = normalizedContexts(field && field.contexts);
@@ -139,5 +162,6 @@ function removeMetadataField(configurationResult, key) {
 
 exports.configuredTag = configuredTag;
 exports.canEditMetadataConfiguration = canEditMetadataConfiguration;
+exports.ensureMetadataConfiguration = ensureMetadataConfiguration;
 exports.saveMetadataField = saveMetadataField;
 exports.removeMetadataField = removeMetadataField;

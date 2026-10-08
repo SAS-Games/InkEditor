@@ -6,6 +6,14 @@ const METADATA_DEFINITIONS = Object.freeze([
     Object.freeze({ key: "animation", label: "Animation", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
     Object.freeze({ key: "audio", label: "Audio", catalog: true, contexts: Object.freeze(["dialogue", "choice"]) }),
     Object.freeze({
+        key: "loc-arg",
+        label: "Localization Arguments",
+        catalog: false,
+        contexts: Object.freeze(["dialogue", "choice"]),
+        repeatable: true,
+        specialized: "localizationArguments"
+    }),
+    Object.freeze({
         key: "skip",
         label: "Story Skip",
         catalog: false,

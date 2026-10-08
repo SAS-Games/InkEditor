@@ -46,7 +46,7 @@ InkProject.setEvents({
         ToolbarView.setTitle(activeInk.filename());
         NavView.setMainInkFilename(InkProject.currentProject.mainInk.filename());
         NavView.highlightRelativePath(activeInk.relativePath());
-        MetadataInspectorController.reloadConfiguration();
+        MetadataInspectorController.mainInkSaved();
     },
     "didSwitchToInkFile": (inkFile) => {
         var filename = inkFile.filename();
